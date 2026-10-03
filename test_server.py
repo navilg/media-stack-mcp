@@ -354,6 +354,21 @@ def test_get_floppy_popular_movies_validation_errors():
         _restore_env(previous)
 
 
+def test_get_floppy_watched_movies_validation_errors():
+    assert server.get_floppy_watched_movies(days=0) == "Error: days must be greater than 0"
+    assert server.get_floppy_watched_movies(days=-1) == "Error: days must be greater than 0"
+    assert server.get_floppy_watched_movies(limit=0) == "Error: limit must be between 1 and 200"
+    assert server.get_floppy_watched_movies(limit=201) == "Error: limit must be between 1 and 200"
+
+    previous = _set_env({"FLOPPY_URL": None, "FLOPPY_API_KEY": None})
+    try:
+        assert server.get_floppy_watched_movies() == "Error: FLOPPY_URL is not set"
+        os.environ["FLOPPY_URL"] = "http://localhost:8000"
+        assert server.get_floppy_watched_movies() == "Error: FLOPPY_API_KEY is not set"
+    finally:
+        _restore_env(previous)
+
+
 def test_get_floppy_latest_high_rated_movies():
     from datetime import datetime, timedelta, timezone
     from unittest import SkipTest
@@ -615,6 +630,7 @@ if __name__ == "__main__":
         test_valid_toolsets,
         test_get_floppy_latest_high_rated_movies_validation_errors,
         test_get_floppy_popular_movies_validation_errors,
+        test_get_floppy_watched_movies_validation_errors,
         test_parse_toolsets_handles_whitespace,
         test_parse_toolsets_invalid,
         test_compute_tags_to_disable_default,

@@ -14,6 +14,7 @@ The server currently exposes these MCP tools:
 - `get_trakt_latest_high_rated_movies(days=30, threshold_rating=7, limit=50)`
 - `get_floppy_latest_high_rated_movies(days=30, threshold_rating=7, limit=50)`
 - `get_floppy_popular_movies(limit=50)`
+- `get_floppy_watched_movies(days=30, limit=200)`
 - `get_trakt_popular_movies(limit=50)`
 - `get_radarr_movies()`
 - `get_radarr_quality_profiles()`
@@ -120,7 +121,7 @@ You can disable entire groups of related tools at startup using the `DISABLE_TOO
 
 Available toolset names:
 
-- `floppy`: Popular tracked movies and recently completed movies with high personal ratings
+- `floppy`: Popular tracked movies, movie watch history, and recently completed movies with high personal ratings
 - `trakt`: All Trakt tools (profile, watched, liked, disliked, latest, popular, trending)
 - `radarr`: All Radarr tools (list, quality, root folders, add, delete, downloads)
 - `sonarr`: Sonarr tools (`get_sonarr_shows`, `get_sonarr_quality_profiles`, `get_sonarr_root_folders`, `add_sonarr_show`, `delete_sonarr_show`, `get_sonarr_current_downloads`)
@@ -201,6 +202,7 @@ docker stop mcp-media-stack
 - `get_trakt_public_watched_movies` defaults to the last 30 days.
 - `get_floppy_latest_high_rated_movies` returns tracked movies completed in the last `days` calendar-date window with a personal score at least `threshold_rating` (0-10), newest completion first. Unlike Trakt's tool, it does not query recently released movies or use provider ratings. It paginates before applying the score threshold and returns up to `limit` TSV rows, or `Empty list`. The Floppy integration test skips when its credentials are absent.
 - `get_floppy_popular_movies` returns up to 200 movies from the authenticated user's tracked library, ordered by Floppy's `popularity` sort. It is not a global popularity feed because Floppy's documented API only exposes tracked media through this endpoint.
+- `get_floppy_watched_movies` reads the authenticated user's movie history for the last `days` dates, returning completed entries only, newest first, up to `limit` (maximum 200). Repeat plays are represented by Floppy's `play_count`. The history endpoint requires a Floppy API key with watchlist read access.
 - Trakt tools return condensed movie metadata including title, release date, ratings, genres, and certification.
 - `add_radarr_movie` looks up the movie by query string, then adds it with monitor set to movie only, minimum availability set to released, and search enabled.
 - `delete_radarr_movie` looks up the movie by query string before deleting it; set `delete_files=True` to remove the file from disk as well.

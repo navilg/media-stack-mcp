@@ -61,6 +61,71 @@ def get_floppy_popular_movies(limit: int = 50) -> str:
     return to_tsv(popular_movies)
 
 
+def get_floppy_watched_movies(days: int = 30, limit: int = 200) -> str:
+    """Get movie consumption history from the authenticated user's Floppy account.
+    INPUT: days (>0, default 30), limit (1-200, default 200).
+    OUTPUT: TSV rows for completed movie history, or Error string.
+    """
+    if days <= 0:
+        return "Error: days must be greater than 0"
+    if limit <= 0 or limit > 200:
+        return "Error: limit must be between 1 and 200"
+
+    config = get_floppy_config()
+    if isinstance(config, str):
+        return config
+    floppy_url, api_key = config
+
+    now_utc = datetime.now(timezone.utc)
+    params = {
+        "flat": "1",
+        "media_type": "movie",
+        "start_date": (now_utc - timedelta(days=days)).date().isoformat(),
+        "end_date": now_utc.date().isoformat(),
+        "limit": limit,
+        "offset": 0,
+    }
+
+    try:
+        response = requests.get(
+            f"{floppy_url}/api/v1/history/",
+            params=params,
+            headers={"X-API-Key": api_key},
+            timeout=20,
+        )
+        response.raise_for_status()
+        payload = response.json()
+        watched_movies: list[dict] = []
+        for entry in payload["results"]:
+            status = entry.get("status")
+            if not (
+                status == 3
+                or isinstance(status, str) and status.strip().casefold() == "completed"
+            ):
+                continue
+            item = entry.get("item") or entry.get("media") or {}
+            details = item.get("details") or {}
+            watched_movies.append(
+                {
+                    "watched_at": entry.get("played_at_local"),
+                    "title": entry.get("display_title") or entry.get("title") or item.get("title"),
+                    "year": item.get("year") or details.get("year"),
+                    "media_id": item.get("media_id") or entry.get("media_id"),
+                    "source": item.get("source") or entry.get("entry_source"),
+                    "rating": entry.get("score"),
+                    "genre": entry.get("genres") or item.get("genres") or details.get("genres"),
+                    "play_count": entry.get("play_count"),
+                    "history_entry_key": entry.get("entry_key"),
+                }
+            )
+    except requests.RequestException as exc:
+        return f"Error: Failed to fetch watched movies from Floppy: {exc}"
+    except (KeyError, TypeError, ValueError, AttributeError):
+        return "Error: Invalid response from Floppy"
+
+    return to_tsv(watched_movies)
+
+
 def get_floppy_latest_high_rated_movies(
     days: int = 30,
     threshold_rating: float = 7,
