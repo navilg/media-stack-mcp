@@ -6,6 +6,61 @@ from media_stack.config import get_floppy_config
 from media_stack.formatting import to_tsv
 
 
+def get_floppy_popular_movies(limit: int = 50) -> str:
+    """Get popular movies from the authenticated user's Floppy library.
+    INPUT: limit (1-200, default 50).
+    OUTPUT: TSV rows ordered by Floppy's popularity sort, or Error string.
+    Floppy's documented endpoint returns tracked media, not a global catalog.
+    """
+    if limit <= 0 or limit > 200:
+        return "Error: limit must be between 1 and 200"
+
+    config = get_floppy_config()
+    if isinstance(config, str):
+        return config
+    floppy_url, api_key = config
+
+    try:
+        response = requests.get(
+            f"{floppy_url}/api/v1/media/movie/",
+            params={
+                "sort": "popularity",
+                "direction": "desc",
+                "limit": limit,
+                "offset": 0,
+            },
+            headers={"X-API-Key": api_key},
+            timeout=20,
+        )
+        response.raise_for_status()
+        payload = response.json()
+        popular_movies: list[dict] = []
+        for entry in payload["results"]:
+            item = entry.get("item") or {}
+            details = item.get("details") or {}
+            popular_movies.append(
+                {
+                    "title": item.get("title"),
+                    "media_id": item.get("media_id"),
+                    "source": item.get("source"),
+                    "release_date": item.get("released") or details.get("release_date"),
+                    "runtime": item.get("runtime") or details.get("runtime"),
+                    "popularity": item.get("popularity") or details.get("popularity"),
+                    "average_rating": item.get("rating") or details.get("rating"),
+                    "genre": item.get("genres") or details.get("genres"),
+                    "certification": item.get("certification") or details.get("certification"),
+                    "language": item.get("language") or details.get("language"),
+                    "overview": item.get("overview") or details.get("overview"),
+                }
+            )
+    except requests.RequestException as exc:
+        return f"Error: Failed to fetch popular movies from Floppy: {exc}"
+    except (KeyError, TypeError, ValueError, AttributeError):
+        return "Error: Invalid response from Floppy"
+
+    return to_tsv(popular_movies)
+
+
 def get_floppy_latest_high_rated_movies(
     days: int = 30,
     threshold_rating: float = 7,

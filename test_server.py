@@ -1,9 +1,16 @@
 import argparse
+import asyncio
+import socket
+import tempfile
+import time
 import traceback
 import subprocess
 import sys
 from dotenv import load_dotenv
 import os
+
+from fastmcp import Client
+from fastmcp.client.transports import SSETransport
 
 import server
 
@@ -162,6 +169,50 @@ def test_server_help_does_not_mention_disable_toolsets_flag():
     )
     assert result.returncode == 0
     assert "--disable-toolsets" not in result.stdout
+    assert "sse" in result.stdout
+    assert "default: streamable-http" in result.stdout
+
+
+def test_server_sse_transport():
+    """The CLI serves a real MCP session over SSE without backend credentials."""
+    with socket.socket() as listener:
+        listener.bind(("127.0.0.1", 0))
+        port = listener.getsockname()[1]
+
+    async def check_session():
+        async with Client(SSETransport(f"http://127.0.0.1:{port}/sse"), timeout=5) as client:
+            assert await client.ping()
+            tools = await client.list_tools()
+            assert any(tool.name == "get_floppy_popular_movies" for tool in tools)
+
+    env = os.environ.copy()
+    env.pop("DISABLE_TOOLSETS", None)
+    with tempfile.TemporaryFile(mode="w+") as logs:
+        process = subprocess.Popen(
+            [sys.executable, "server.py", "--transport", "sse", "--host", "127.0.0.1", "--port", str(port)],
+            stdout=logs,
+            stderr=logs,
+            env=env,
+        )
+        try:
+            deadline = time.monotonic() + 15
+            while True:
+                if process.poll() is not None or time.monotonic() >= deadline:
+                    logs.seek(0)
+                    raise AssertionError(f"SSE server failed to start: {logs.read()}")
+                try:
+                    with socket.create_connection(("127.0.0.1", port), timeout=0.2):
+                        break
+                except OSError:
+                    time.sleep(0.05)
+            asyncio.run(check_session())
+        finally:
+            process.terminate()
+            try:
+                process.wait(timeout=5)
+            except subprocess.TimeoutExpired:
+                process.kill()
+                process.wait(timeout=5)
 
 
 def test_server_with_invalid_disable_toolsets_env_fails():
@@ -286,6 +337,19 @@ def test_get_floppy_latest_high_rated_movies_validation_errors():
         assert server.get_floppy_latest_high_rated_movies() == "Error: FLOPPY_URL is not set"
         os.environ["FLOPPY_URL"] = "http://localhost:8000"
         assert server.get_floppy_latest_high_rated_movies() == "Error: FLOPPY_API_KEY is not set"
+    finally:
+        _restore_env(previous)
+
+
+def test_get_floppy_popular_movies_validation_errors():
+    assert server.get_floppy_popular_movies(limit=0) == "Error: limit must be between 1 and 200"
+    assert server.get_floppy_popular_movies(limit=201) == "Error: limit must be between 1 and 200"
+
+    previous = _set_env({"FLOPPY_URL": None, "FLOPPY_API_KEY": None})
+    try:
+        assert server.get_floppy_popular_movies() == "Error: FLOPPY_URL is not set"
+        os.environ["FLOPPY_URL"] = "http://localhost:8000"
+        assert server.get_floppy_popular_movies() == "Error: FLOPPY_API_KEY is not set"
     finally:
         _restore_env(previous)
 
@@ -550,6 +614,7 @@ if __name__ == "__main__":
     tests = [
         test_valid_toolsets,
         test_get_floppy_latest_high_rated_movies_validation_errors,
+        test_get_floppy_popular_movies_validation_errors,
         test_parse_toolsets_handles_whitespace,
         test_parse_toolsets_invalid,
         test_compute_tags_to_disable_default,

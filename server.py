@@ -9,7 +9,7 @@ from media_stack.config import (
     parse_toolsets as _parse_toolsets,
 )
 from media_stack.constants import VALID_TOOLSETS
-from media_stack.floppy import get_floppy_latest_high_rated_movies
+from media_stack.floppy import get_floppy_latest_high_rated_movies, get_floppy_popular_movies
 from media_stack.formatting import to_tsv as _to_tsv
 from media_stack.radarr import (
     add_radarr_movie,
@@ -48,6 +48,7 @@ mcp = FastMCP(name="Media Stack MCP")
 
 
 def _register_tools() -> None:
+    mcp.tool(tags={"floppy"})(get_floppy_popular_movies)
     mcp.tool(tags={"floppy"})(get_floppy_latest_high_rated_movies)
 
     trakt_tools = [
@@ -97,7 +98,12 @@ def main() -> None:
     parser = argparse.ArgumentParser(description="Run the Media Stack MCP server.")
     parser.add_argument("--host", type=str, default="0.0.0.0", help="Host address to bind the server to")
     parser.add_argument("--port", type=int, default=8000, help="Port to bind the server to")
-    parser.add_argument("--transport", type=str, default="streamable-http", help="Transport protocol to use (default: streamable-http)")
+    parser.add_argument(
+        "--transport",
+        type=str,
+        default="streamable-http",
+        help="Transport protocol to use: streamable-http, http, or sse (default: streamable-http)",
+    )
     args = parser.parse_args()
 
     disable_toolsets_env = os.getenv("DISABLE_TOOLSETS", "")
