@@ -10,9 +10,8 @@ from media_stack.config import (
 )
 from media_stack.constants import VALID_TOOLSETS
 from media_stack.floppy import (
-    get_floppy_latest_high_rated_movies,
-    get_floppy_popular_movies,
     get_floppy_watched_movies,
+    get_floppy_liked_movies,
 )
 from media_stack.formatting import to_tsv as _to_tsv
 from media_stack.radarr import (
@@ -54,9 +53,8 @@ mcp = FastMCP(name="Media Stack MCP")
 def _register_tools() -> None:
 
     floppy_tools = [
-        get_floppy_popular_movies,
-        get_floppy_latest_high_rated_movies,
         get_floppy_watched_movies,
+        get_floppy_liked_movies,
     ]
 
     trakt_tools = [
