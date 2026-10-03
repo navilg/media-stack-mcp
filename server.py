@@ -52,9 +52,12 @@ mcp = FastMCP(name="Media Stack MCP")
 
 
 def _register_tools() -> None:
-    mcp.tool(tags={"floppy"})(get_floppy_popular_movies)
-    mcp.tool(tags={"floppy"})(get_floppy_latest_high_rated_movies)
-    mcp.tool(tags={"floppy"})(get_floppy_watched_movies)
+
+    floppy_tools = [
+        get_floppy_popular_movies,
+        get_floppy_latest_high_rated_movies,
+        get_floppy_watched_movies,
+    ]
 
     trakt_tools = [
         check_trakt_profile_privacy,
@@ -88,6 +91,9 @@ def _register_tools() -> None:
         delete_sonarr_show,
         get_sonarr_current_downloads,
     ]
+    
+    for tool in floppy_tools:
+        mcp.tool(tags={"floppy"})(tool)
 
     for tool in trakt_tools:
         mcp.tool(tags={"trakt"})(tool)
