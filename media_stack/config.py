@@ -4,6 +4,18 @@ import os
 from media_stack.constants import VALID_TOOLSETS
 
 
+def get_floppy_config() -> tuple[str, str] | str:
+    floppy_url = os.getenv("FLOPPY_URL")
+    floppy_api_key = os.getenv("FLOPPY_API_KEY")
+
+    if not floppy_url:
+        return "Error: FLOPPY_URL is not set"
+    if not floppy_api_key:
+        return "Error: FLOPPY_API_KEY is not set"
+
+    return floppy_url.rstrip("/"), floppy_api_key
+
+
 def get_radarr_config() -> tuple[str, str] | str:
     radarr_url = os.getenv("RADARR_URL")
     radarr_api_key = os.getenv("RADARR_API_KEY")

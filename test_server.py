@@ -74,6 +74,7 @@ def _restore_env(previous: dict[str, str | None]) -> None:
 def test_valid_toolsets():
     """Valid toolset names pass validation."""
     assert server._parse_toolsets("") == ""
+    assert server._parse_toolsets("floppy") == "floppy"
     assert server._parse_toolsets("trakt") == "trakt"
     assert server._parse_toolsets("radarr") == "radarr"
     assert server._parse_toolsets("sonarr") == "sonarr"
@@ -272,6 +273,46 @@ def test_get_trakt_public_disliked_movies():
     print(f"Retrieved {len(records)} disliked movies for user '{test_username}'")
     print("Sample movie:", records[0])
     assert all(int(record["user_rating"]) <= 5 for record in records)
+
+
+def test_get_floppy_latest_high_rated_movies_validation_errors():
+    assert server.get_floppy_latest_high_rated_movies(days=0) == "Error: days must be greater than 0"
+    assert server.get_floppy_latest_high_rated_movies(threshold_rating=-1) == "Error: threshold_rating must be between 0 and 10"
+    assert server.get_floppy_latest_high_rated_movies(threshold_rating=11) == "Error: threshold_rating must be between 0 and 10"
+    assert server.get_floppy_latest_high_rated_movies(limit=0) == "Error: limit must be greater than 0"
+
+    previous = _set_env({"FLOPPY_URL": None, "FLOPPY_API_KEY": None})
+    try:
+        assert server.get_floppy_latest_high_rated_movies() == "Error: FLOPPY_URL is not set"
+        os.environ["FLOPPY_URL"] = "http://localhost:8000"
+        assert server.get_floppy_latest_high_rated_movies() == "Error: FLOPPY_API_KEY is not set"
+    finally:
+        _restore_env(previous)
+
+
+def test_get_floppy_latest_high_rated_movies():
+    from datetime import datetime, timedelta, timezone
+    from unittest import SkipTest
+
+    load_dotenv("test.env")
+    if not os.getenv("FLOPPY_URL") or not os.getenv("FLOPPY_API_KEY"):
+        raise SkipTest("Set FLOPPY_URL and FLOPPY_API_KEY for the Floppy integration test")
+
+    result_tsv = server.get_floppy_latest_high_rated_movies()
+    assert not result_tsv.startswith("Error:"), result_tsv
+    if result_tsv == "Empty list":
+        return
+    records = _parse_tsv(result_tsv)
+    assert 0 < len(records) <= 50
+    now_utc = datetime.now(timezone.utc)
+    start_date = (now_utc - timedelta(days=30)).date()
+    completed_dates = []
+    for record in records:
+        assert float(record["user_rating"]) >= 7
+        completed_date = datetime.fromisoformat(record["completed_date"].replace("Z", "+00:00"))
+        assert start_date <= completed_date.date() <= now_utc.date()
+        completed_dates.append(completed_date)
+    assert completed_dates == sorted(completed_dates, reverse=True)
 
 
 def test_get_trakt_latest_high_rated_movies():
@@ -508,6 +549,7 @@ if __name__ == "__main__":
     load_dotenv("test.env")
     tests = [
         test_valid_toolsets,
+        test_get_floppy_latest_high_rated_movies_validation_errors,
         test_parse_toolsets_handles_whitespace,
         test_parse_toolsets_invalid,
         test_compute_tags_to_disable_default,
@@ -542,6 +584,9 @@ if __name__ == "__main__":
         test_get_trakt_public_watched_shows,
         test_get_trakt_public_watched_shows_validation_errors,
     ]
+
+    if os.getenv("FLOPPY_URL") and os.getenv("FLOPPY_API_KEY"):
+        tests.append(test_get_floppy_latest_high_rated_movies)
 
     passed = 0
     failed = 0

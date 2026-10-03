@@ -1,0 +1,3739 @@
+openapi: 3.0.3
+info:
+  title: Floppy verified MCP and grounding API
+  version: 1.0.0
+  description: Verified consumer subset covering MCP HTTP operations, public grounding
+    information, and ListenBrainz-compatible authentication. The full diagnostic API
+    schema remains available at /api/schema/.
+  contact:
+    url: https://github.com/dannyvfilms/Floppy/issues
+  license:
+    name: AGPL-3.0
+    url: https://www.gnu.org/licenses/agpl-3.0.html
+paths:
+  /api/v1/discover/:
+    get:
+      operationId: api_v1_discover_retrieve
+      description: Return the cached Discover rows for the media type.
+      tags:
+      - api
+      security:
+      - bearerAuth: []
+      - ApiKeyAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                - media_type
+                - show_more
+                - rows
+                properties:
+                  media_type:
+                    type: string
+                  show_more:
+                    type: boolean
+                  rows:
+                    type: array
+                    items:
+                      type: object
+                      additionalProperties: true
+          description: ''
+  /api/v1/history/:
+    get:
+      operationId: listHistory
+      description: Return the user's history grouped by day, newest first.
+      parameters:
+      - in: query
+        name: album
+        schema:
+          type: integer
+        description: Restrict music entries to one album id.
+      - in: query
+        name: artist
+        schema:
+          type: integer
+        description: Restrict music entries to one artist's album id.
+      - in: query
+        name: end_date
+        schema:
+          type: string
+        description: ISO date; restricts results to entries on/before this date.
+      - in: query
+        name: flat
+        schema:
+          type: string
+        description: '`1` or `true` returns a flat, per-entry list (paginated by `limit`/`offset`
+          over entries) instead of day-grouped buckets.'
+      - in: query
+        name: genre
+        schema:
+          type: string
+        description: Filter by genre name.
+      - in: query
+        name: implied_genre
+        schema:
+          type: string
+        description: Filter music entries by an implied (derived) genre name.
+      - in: query
+        name: limit
+        schema:
+          type: integer
+        description: Maximum days (or entries, when `flat=1`); maximum 200, defaults
+          to 20.
+      - in: query
+        name: logging_style
+        schema:
+          type: string
+          enum:
+          - repeats
+          - sessions
+        description: Overrides the user's saved game history logging style for this
+          request.
+      - in: query
+        name: max_entries_per_day
+        schema:
+          type: integer
+        description: Override the per-day entry cap (default and max 200) applied
+          to day-grouped results. Ignored when `flat=1`, which paginates over individual
+          entries instead of days and is never capped per day.
+      - in: query
+        name: media_id
+        schema:
+          type: string
+        description: Restrict to entries for one item's media_id (requires `source`).
+      - in: query
+        name: media_type
+        schema:
+          type: array
+          items:
+            type: string
+        description: Media type filter; repeated and comma-separated syntax are accepted.
+          Alias of `types`.
+      - in: query
+        name: offset
+        schema:
+          type: integer
+        description: Zero-based offset over days (or entries, when `flat=1`); defaults
+          to 0.
+      - in: query
+        name: person_id
+        schema:
+          type: string
+        description: Restrict to entries credited to a person, by provider person
+          id (requires `person_source`).
+      - in: query
+        name: person_source
+        schema:
+          type: string
+        description: Restrict to entries credited to a person, by provider source
+          (requires `person_id`).
+      - in: query
+        name: podcast_show
+        schema:
+          type: integer
+        description: Restrict podcast entries to one show id.
+      - in: query
+        name: season
+        schema:
+          type: integer
+        description: Restrict episode entries to one season id.
+      - in: query
+        name: season_number
+        schema:
+          type: integer
+        description: Restrict episode entries to a season number (requires `media_id`/`source`).
+      - in: query
+        name: source
+        schema:
+          type: string
+        description: Restrict to entries for one item's provider source (requires
+          `media_id`).
+      - in: query
+        name: start_date
+        schema:
+          type: string
+        description: ISO date; restricts results to entries on/after this date.
+      - in: query
+        name: tv
+        schema:
+          type: integer
+        description: Restrict episode entries to one TV show id.
+      - in: query
+        name: types
+        schema:
+          type: array
+          items:
+            type: string
+        description: Media type filter; repeated and comma-separated syntax are accepted.
+          Alias of `media_type`.
+      tags:
+      - api
+      security:
+      - bearerAuth: []
+      - ApiKeyAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                - pagination
+                - results
+                properties:
+                  pagination:
+                    type: object
+                    required:
+                    - total
+                    - limit
+                    - offset
+                    - next
+                    - previous
+                    properties:
+                      total:
+                        type: integer
+                      limit:
+                        type: integer
+                      offset:
+                        type: integer
+                      next:
+                        type: string
+                        nullable: true
+                      previous:
+                        type: string
+                        nullable: true
+                  results:
+                    type: array
+                    items:
+                      type: object
+                      additionalProperties: true
+          description: ''
+  /api/v1/home/:
+    get:
+      operationId: api_v1_home_retrieve
+      description: Return home groups with serialized row items.
+      tags:
+      - api
+      security:
+      - bearerAuth: []
+      - ApiKeyAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                - groups
+                properties:
+                  groups:
+                    type: array
+                    items:
+                      type: object
+                      additionalProperties: true
+          description: ''
+  /api/v1/imports/{service}/:
+    post:
+      operationId: api_v1_imports_create
+      description: Dispatch the import task for the service.
+      parameters:
+      - in: path
+        name: service
+        schema:
+          type: string
+          pattern: ^[\w-]+$
+        required: true
+      tags:
+      - api
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: true
+      security:
+      - bearerAuth: []
+      - ApiKeyAuth: []
+      responses:
+        '202':
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                - task_id
+                properties:
+                  task_id:
+                    type: string
+          description: ''
+  /api/v1/info/:
+    get:
+      operationId: getPublicInfo
+      description: Get application information.
+      tags:
+      - api
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/InfoResponse'
+          description: ''
+  /api/v1/lists/:
+    get:
+      operationId: api_v1_lists_retrieve
+      description: Retrieve the lists for the authenticated user.
+      tags:
+      - api
+      security:
+      - bearerAuth: []
+      - ApiKeyAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                - pagination
+                - results
+                properties:
+                  pagination:
+                    type: object
+                    required:
+                    - total
+                    - limit
+                    - offset
+                    - next
+                    - previous
+                    properties:
+                      total:
+                        type: integer
+                      limit:
+                        type: integer
+                      offset:
+                        type: integer
+                      next:
+                        type: string
+                        nullable: true
+                      previous:
+                        type: string
+                        nullable: true
+                  results:
+                    type: array
+                    items:
+                      type: object
+                      required:
+                      - id
+                      - name
+                      - description
+                      - image
+                      - owner
+                      - collaborators
+                      - items_count
+                      - latest_update
+                      - is_public
+                      - public_slug
+                      - allow_recommendations
+                      properties:
+                        id:
+                          type: integer
+                        name:
+                          type: string
+                        description:
+                          type: string
+                        image:
+                          type: string
+                          nullable: true
+                        owner:
+                          type: object
+                          additionalProperties: true
+                        collaborators:
+                          type: array
+                          items:
+                            type: object
+                            additionalProperties: true
+                        items_count:
+                          type: integer
+                        latest_update:
+                          type: string
+                          format: date-time
+                          nullable: true
+                        is_public:
+                          type: boolean
+                        public_slug:
+                          type: string
+                          nullable: true
+                        allow_recommendations:
+                          type: boolean
+                        items:
+                          oneOf:
+                          - type: array
+                            items:
+                              type: object
+                              additionalProperties: true
+                          - type: object
+                            required:
+                            - pagination
+                            - results
+                            properties:
+                              pagination:
+                                type: object
+                                required:
+                                - total
+                                - limit
+                                - offset
+                                - next
+                                - previous
+                                properties:
+                                  total:
+                                    type: integer
+                                  limit:
+                                    type: integer
+                                  offset:
+                                    type: integer
+                                  next:
+                                    type: string
+                                    nullable: true
+                                  previous:
+                                    type: string
+                                    nullable: true
+                              results:
+                                type: array
+                                items:
+                                  type: object
+                                  additionalProperties: true
+          description: ''
+    post:
+      operationId: api_v1_lists_create
+      description: Create a new custom list for the authenticated user.
+      tags:
+      - api
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: true
+      security:
+      - bearerAuth: []
+      - ApiKeyAuth: []
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                - id
+                - name
+                - description
+                - image
+                - owner
+                - collaborators
+                - items_count
+                - latest_update
+                - is_public
+                - public_slug
+                - allow_recommendations
+                properties:
+                  id:
+                    type: integer
+                  name:
+                    type: string
+                  description:
+                    type: string
+                  image:
+                    type: string
+                    nullable: true
+                  owner:
+                    type: object
+                    additionalProperties: true
+                  collaborators:
+                    type: array
+                    items:
+                      type: object
+                      additionalProperties: true
+                  items_count:
+                    type: integer
+                  latest_update:
+                    type: string
+                    format: date-time
+                    nullable: true
+                  is_public:
+                    type: boolean
+                  public_slug:
+                    type: string
+                    nullable: true
+                  allow_recommendations:
+                    type: boolean
+                  items:
+                    oneOf:
+                    - type: array
+                      items:
+                        type: object
+                        additionalProperties: true
+                    - type: object
+                      required:
+                      - pagination
+                      - results
+                      properties:
+                        pagination:
+                          type: object
+                          required:
+                          - total
+                          - limit
+                          - offset
+                          - next
+                          - previous
+                          properties:
+                            total:
+                              type: integer
+                            limit:
+                              type: integer
+                            offset:
+                              type: integer
+                            next:
+                              type: string
+                              nullable: true
+                            previous:
+                              type: string
+                              nullable: true
+                        results:
+                          type: array
+                          items:
+                            type: object
+                            additionalProperties: true
+          description: ''
+  /api/v1/lists/{list_id}/:
+    patch:
+      operationId: api_v1_lists_partial_update
+      description: Update a specific custom list.
+      parameters:
+      - in: path
+        name: list_id
+        schema:
+          type: string
+          pattern: ^\d+$
+        required: true
+      tags:
+      - api
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: true
+      security:
+      - bearerAuth: []
+      - ApiKeyAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                - id
+                - name
+                - description
+                - image
+                - owner
+                - collaborators
+                - items_count
+                - latest_update
+                - is_public
+                - public_slug
+                - allow_recommendations
+                properties:
+                  id:
+                    type: integer
+                  name:
+                    type: string
+                  description:
+                    type: string
+                  image:
+                    type: string
+                    nullable: true
+                  owner:
+                    type: object
+                    additionalProperties: true
+                  collaborators:
+                    type: array
+                    items:
+                      type: object
+                      additionalProperties: true
+                  items_count:
+                    type: integer
+                  latest_update:
+                    type: string
+                    format: date-time
+                    nullable: true
+                  is_public:
+                    type: boolean
+                  public_slug:
+                    type: string
+                    nullable: true
+                  allow_recommendations:
+                    type: boolean
+                  items:
+                    oneOf:
+                    - type: array
+                      items:
+                        type: object
+                        additionalProperties: true
+                    - type: object
+                      required:
+                      - pagination
+                      - results
+                      properties:
+                        pagination:
+                          type: object
+                          required:
+                          - total
+                          - limit
+                          - offset
+                          - next
+                          - previous
+                          properties:
+                            total:
+                              type: integer
+                            limit:
+                              type: integer
+                            offset:
+                              type: integer
+                            next:
+                              type: string
+                              nullable: true
+                            previous:
+                              type: string
+                              nullable: true
+                        results:
+                          type: array
+                          items:
+                            type: object
+                            additionalProperties: true
+          description: ''
+    delete:
+      operationId: api_v1_lists_destroy
+      description: Delete a specific custom list.
+      parameters:
+      - in: path
+        name: list_id
+        schema:
+          type: string
+          pattern: ^\d+$
+        required: true
+      tags:
+      - api
+      security:
+      - bearerAuth: []
+      - ApiKeyAuth: []
+      responses:
+        '204':
+          description: No response body
+  /api/v1/lists/{list_id}/items/:
+    get:
+      operationId: api_v1_lists_items_retrieve
+      description: Get items of a list.
+      parameters:
+      - in: path
+        name: list_id
+        schema:
+          type: string
+          pattern: ^\d+$
+        required: true
+      tags:
+      - api
+      security:
+      - bearerAuth: []
+      - ApiKeyAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TrackedMediaEnvelope'
+          description: ''
+  /api/v1/media/:
+    get:
+      operationId: listTrackedMedia
+      description: Retrieve the filtered media list for the authenticated user.
+      parameters:
+      - in: query
+        name: author
+        schema:
+          type: string
+      - in: query
+        name: collection
+        schema:
+          type: string
+          enum:
+          - all
+          - collected
+          - not_collected
+      - in: query
+        name: completed_date_from
+        schema:
+          type: string
+        description: Match items completed on or after this date (YYYY-MM-DD), independent
+          of release year.
+      - in: query
+        name: completed_date_to
+        schema:
+          type: string
+        description: Match items completed on or before this date (YYYY-MM-DD).
+      - in: query
+        name: country
+        schema:
+          type: string
+      - in: query
+        name: direction
+        schema:
+          type: string
+          enum:
+          - asc
+          - desc
+      - in: query
+        name: exclude
+        schema:
+          type: array
+          items:
+            type: string
+        description: Root-list type exclusions; repeated and comma-separated syntax
+          are accepted.
+      - in: query
+        name: format
+        schema:
+          type: string
+      - in: query
+        name: genre
+        schema:
+          type: string
+      - in: query
+        name: implied_genre
+        schema:
+          type: string
+        description: Music-only implied genre filter.
+      - in: query
+        name: language
+        schema:
+          type: string
+      - in: query
+        name: limit
+        schema:
+          type: integer
+        description: Maximum 200; defaults to 20.
+      - in: query
+        name: media_status
+        schema:
+          type: string
+        description: Provider metadata status, not the user's tracking status.
+      - in: query
+        name: media_type
+        schema:
+          type: string
+          enum:
+          - anime
+          - boardgame
+          - book
+          - comic
+          - comicissue
+          - episode
+          - game
+          - manga
+          - movie
+          - music
+          - podcast
+          - season
+          - tv
+        description: Optional type restriction; omitted returns the default media
+          types.
+      - in: query
+        name: offset
+        schema:
+          type: integer
+        description: Zero-based result offset; defaults to 0.
+      - in: query
+        name: origin
+        schema:
+          type: string
+      - in: query
+        name: platform
+        schema:
+          type: array
+          items:
+            type: string
+        description: Repeat for multiple platforms; comma-separated values are also
+          accepted.
+      - in: query
+        name: platform_mode
+        schema:
+          type: string
+          enum:
+          - and
+          - not
+          - or
+      - in: query
+        name: progress
+        schema:
+          type: string
+          enum:
+          - all
+          - caught_up
+          - not_caught_up
+        description: Currently meaningful for TV and anime lists.
+      - in: query
+        name: provider
+        schema:
+          type: string
+      - in: query
+        name: rating
+        schema:
+          type: string
+          enum:
+          - all
+          - not_rated
+          - rated
+      - in: query
+        name: release
+        schema:
+          type: string
+          enum:
+          - all
+          - not_released
+          - released
+      - in: query
+        name: search
+        schema:
+          type: string
+      - in: query
+        name: sort
+        schema:
+          type: string
+          enum:
+          - added
+          - author
+          - critic_rating
+          - date_added
+          - end_date
+          - ended
+          - id
+          - itemid
+          - mediaid
+          - next_episode_air_date
+          - platform
+          - plays
+          - popularity
+          - progress
+          - release_date
+          - runtime
+          - score
+          - source
+          - start_date
+          - started
+          - time_left
+          - time_to_beat
+          - time_watched
+          - title
+          - type
+          - updated
+        description: Legacy `field_asc`/`field_desc` suffixes remain accepted.
+      - in: query
+        name: source
+        schema:
+          type: string
+      - in: query
+        name: status
+        schema:
+          type: array
+          items:
+            type: string
+        description: Repeated status values. Accepts numeric codes 0=Planning, 1=In
+          progress, 2=Paused, 3=Completed, 4=Dropped; labels; `all`; and `no_status`.
+      - in: query
+        name: tag
+        schema:
+          type: array
+          items:
+            type: string
+        description: Repeat for multiple tags; comma-separated values are also accepted.
+      - in: query
+        name: tag_exclude
+        schema:
+          type: string
+        description: Legacy alias for `tag=<value>&tag_mode=not`.
+      - in: query
+        name: tag_mode
+        schema:
+          type: string
+          enum:
+          - and
+          - not
+          - or
+      - in: query
+        name: year
+        schema:
+          type: string
+      tags:
+      - api
+      security:
+      - bearerAuth: []
+      - ApiKeyAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TrackedMediaEnvelope'
+          description: ''
+      x-required-scope: watchlist:read
+  /api/v1/media/{media_type}/:
+    get:
+      operationId: listTrackedMediaByType
+      description: Retrieve the filtered media list of a specific media type.
+      parameters:
+      - in: query
+        name: author
+        schema:
+          type: string
+      - in: query
+        name: collection
+        schema:
+          type: string
+          enum:
+          - all
+          - collected
+          - not_collected
+      - in: query
+        name: completed_date_from
+        schema:
+          type: string
+        description: Match items completed on or after this date (YYYY-MM-DD), independent
+          of release year.
+      - in: query
+        name: completed_date_to
+        schema:
+          type: string
+        description: Match items completed on or before this date (YYYY-MM-DD).
+      - in: query
+        name: country
+        schema:
+          type: string
+      - in: query
+        name: direction
+        schema:
+          type: string
+          enum:
+          - asc
+          - desc
+      - in: query
+        name: format
+        schema:
+          type: string
+      - in: query
+        name: genre
+        schema:
+          type: string
+      - in: query
+        name: implied_genre
+        schema:
+          type: string
+        description: Music-only implied genre filter.
+      - in: query
+        name: language
+        schema:
+          type: string
+      - in: query
+        name: limit
+        schema:
+          type: integer
+        description: Maximum 200; defaults to 20.
+      - in: query
+        name: media_status
+        schema:
+          type: string
+        description: Provider metadata status, not the user's tracking status.
+      - in: path
+        name: media_type
+        schema:
+          type: string
+          enum:
+          - anime
+          - boardgame
+          - book
+          - comic
+          - comicissue
+          - episode
+          - game
+          - manga
+          - movie
+          - music
+          - podcast
+          - season
+          - tv
+        description: Media type, including `season` and `episode`. POST to a media-type
+          collection creates a new consumption; omitted status defaults to Planning.
+          Use the history/{consumption_id} route to update one specific existing consumption.
+        required: true
+      - in: query
+        name: offset
+        schema:
+          type: integer
+        description: Zero-based result offset; defaults to 0.
+      - in: query
+        name: origin
+        schema:
+          type: string
+      - in: query
+        name: platform
+        schema:
+          type: array
+          items:
+            type: string
+        description: Repeat for multiple platforms; comma-separated values are also
+          accepted.
+      - in: query
+        name: platform_mode
+        schema:
+          type: string
+          enum:
+          - and
+          - not
+          - or
+      - in: query
+        name: progress
+        schema:
+          type: string
+          enum:
+          - all
+          - caught_up
+          - not_caught_up
+        description: Currently meaningful for TV and anime lists.
+      - in: query
+        name: provider
+        schema:
+          type: string
+      - in: query
+        name: rating
+        schema:
+          type: string
+          enum:
+          - all
+          - not_rated
+          - rated
+      - in: query
+        name: release
+        schema:
+          type: string
+          enum:
+          - all
+          - not_released
+          - released
+      - in: query
+        name: search
+        schema:
+          type: string
+      - in: query
+        name: sort
+        schema:
+          type: string
+          enum:
+          - added
+          - author
+          - critic_rating
+          - date_added
+          - end_date
+          - ended
+          - id
+          - itemid
+          - mediaid
+          - next_episode_air_date
+          - platform
+          - plays
+          - popularity
+          - progress
+          - release_date
+          - runtime
+          - score
+          - source
+          - start_date
+          - started
+          - time_left
+          - time_to_beat
+          - time_watched
+          - title
+          - type
+          - updated
+        description: Legacy `field_asc`/`field_desc` suffixes remain accepted.
+      - in: query
+        name: source
+        schema:
+          type: string
+      - in: query
+        name: status
+        schema:
+          type: array
+          items:
+            type: string
+        description: Repeated status values. Accepts numeric codes 0=Planning, 1=In
+          progress, 2=Paused, 3=Completed, 4=Dropped; labels; `all`; and `no_status`.
+      - in: query
+        name: tag
+        schema:
+          type: array
+          items:
+            type: string
+        description: Repeat for multiple tags; comma-separated values are also accepted.
+      - in: query
+        name: tag_exclude
+        schema:
+          type: string
+        description: Legacy alias for `tag=<value>&tag_mode=not`.
+      - in: query
+        name: tag_mode
+        schema:
+          type: string
+          enum:
+          - and
+          - not
+          - or
+      - in: query
+        name: year
+        schema:
+          type: string
+      tags:
+      - api
+      security:
+      - bearerAuth: []
+      - ApiKeyAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TrackedMediaEnvelope'
+          description: ''
+      x-required-scope: watchlist:read
+    post:
+      operationId: trackMedia
+      description: |-
+        Create a new consumption for a media item.
+
+        This append-oriented endpoint keeps its historical default: omitted
+        status means Planning. Clients updating an existing play should first
+        read its consumption_id and use the exact history route instead.
+
+        `progress` set here (and returned by every media/history endpoint) is
+        always this one consumption's own value, never a sum across a user's
+        other entries for the same item -- the response's `progress_scope`
+        field is explicitly "entry" for this reason. Its unit varies by
+        media_type (e.g. minutes for games, episodes for tv/season/anime,
+        plays for boardgame/music) and is named in the response's
+        `progress_unit` field.
+      parameters:
+      - in: path
+        name: media_type
+        schema:
+          type: string
+          enum:
+          - anime
+          - boardgame
+          - book
+          - comic
+          - comicissue
+          - episode
+          - game
+          - manga
+          - movie
+          - music
+          - podcast
+          - season
+          - tv
+        description: Media type, including `season` and `episode`. POST to a media-type
+          collection creates a new consumption; omitted status defaults to Planning.
+          Use the history/{consumption_id} route to update one specific existing consumption.
+        required: true
+      tags:
+      - api
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TrackMediaRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/TrackMediaRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/TrackMediaRequest'
+      security:
+      - bearerAuth: []
+      - ApiKeyAuth: []
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TrackedMediaResponse'
+          description: ''
+        '400':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DetailError'
+          description: ''
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DetailError'
+          description: ''
+        '404':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DetailError'
+          description: ''
+        '409':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DetailError'
+          description: ''
+        '500':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DetailError'
+          description: ''
+      x-required-scope: watchlist:write
+  /api/v1/media/{media_type}/{source}/{media_id}/:
+    get:
+      operationId: retrieveMediaItem
+      description: Retrieve details of a specific media for the authenticated user.
+      parameters:
+      - in: path
+        name: media_id
+        schema:
+          type: string
+          pattern: ^[^/]+$
+        required: true
+      - in: path
+        name: media_type
+        schema:
+          type: string
+          enum:
+          - anime
+          - boardgame
+          - book
+          - comic
+          - comicissue
+          - game
+          - manga
+          - movie
+          - music
+          - podcast
+          - tv
+        description: Media type. Does not include `season`/`episode` — those are addressed
+          via separate path segments under `tv`.
+        required: true
+      - in: path
+        name: source
+        schema:
+          type: string
+          pattern: ^[^/]+$
+        required: true
+      tags:
+      - api
+      security:
+      - bearerAuth: []
+      - ApiKeyAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CompleteMediaItemResponse'
+          description: ''
+        '400':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DetailError'
+          description: ''
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DetailError'
+          description: ''
+        '404':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DetailError'
+          description: ''
+        '500':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DetailError'
+          description: ''
+      x-required-scope: watchlist:read
+    patch:
+      operationId: updateMediaItem
+      description: |-
+        Update the convenience/default tracked row for a media item.
+
+        Use the history endpoint when the caller needs to target one exact
+        consumption entry.
+      parameters:
+      - in: path
+        name: media_id
+        schema:
+          type: string
+          pattern: ^[^/]+$
+        required: true
+      - in: path
+        name: media_type
+        schema:
+          type: string
+          enum:
+          - anime
+          - boardgame
+          - book
+          - comic
+          - comicissue
+          - game
+          - manga
+          - movie
+          - music
+          - podcast
+          - tv
+        description: Media type. Does not include `season`/`episode` — those are addressed
+          via separate path segments under `tv`.
+        required: true
+      - in: path
+        name: source
+        schema:
+          type: string
+          pattern: ^[^/]+$
+        required: true
+      tags:
+      - api
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TrackedMediaUpdateRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/TrackedMediaUpdateRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/TrackedMediaUpdateRequest'
+      security:
+      - bearerAuth: []
+      - ApiKeyAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CompleteMediaResponse'
+          description: ''
+        '400':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DetailError'
+          description: ''
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DetailError'
+          description: ''
+        '404':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DetailError'
+          description: ''
+        '500':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DetailError'
+          description: ''
+      x-required-scope: watchlist:write
+    delete:
+      operationId: deleteMedia
+      description: Delete a tracked media item and all its consumptions.
+      parameters:
+      - in: path
+        name: media_id
+        schema:
+          type: string
+          pattern: ^[^/]+$
+        required: true
+      - in: path
+        name: media_type
+        schema:
+          type: string
+          enum:
+          - anime
+          - boardgame
+          - book
+          - comic
+          - comicissue
+          - game
+          - manga
+          - movie
+          - music
+          - podcast
+          - tv
+        description: Media type. Does not include `season`/`episode` — those are addressed
+          via separate path segments under `tv`.
+        required: true
+      - in: path
+        name: source
+        schema:
+          type: string
+          pattern: ^[^/]+$
+        required: true
+      tags:
+      - api
+      security:
+      - bearerAuth: []
+      - ApiKeyAuth: []
+      responses:
+        '204':
+          description: No response body
+  /api/v1/media/{media_type}/{source}/{media_id}/{season_number}/:
+    get:
+      operationId: retrieveMediaSeason
+      description: Retrieve details of a specific season for the authenticated user.
+      parameters:
+      - in: path
+        name: media_id
+        schema:
+          type: string
+          pattern: ^[^/]+$
+        required: true
+      - in: path
+        name: media_type
+        schema:
+          type: string
+          enum:
+          - anime
+          - boardgame
+          - book
+          - comic
+          - comicissue
+          - game
+          - manga
+          - movie
+          - music
+          - podcast
+          - tv
+        description: Media type. Does not include `season`/`episode` — those are addressed
+          via separate path segments under `tv`.
+        required: true
+      - in: path
+        name: season_number
+        schema:
+          type: string
+          pattern: ^\d+$
+        required: true
+      - in: path
+        name: source
+        schema:
+          type: string
+          pattern: ^[^/]+$
+        required: true
+      tags:
+      - api
+      security:
+      - bearerAuth: []
+      - ApiKeyAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CompleteMediaResponse'
+          description: ''
+        '400':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DetailError'
+          description: ''
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DetailError'
+          description: ''
+        '404':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DetailError'
+          description: ''
+        '500':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DetailError'
+          description: ''
+      x-required-scope: watchlist:read
+    delete:
+      operationId: deleteMediaSeason
+      description: Delete a tracked season item for the authenticated user.
+      parameters:
+      - in: path
+        name: media_id
+        schema:
+          type: string
+          pattern: ^[^/]+$
+        required: true
+      - in: path
+        name: media_type
+        schema:
+          type: string
+          enum:
+          - anime
+          - boardgame
+          - book
+          - comic
+          - comicissue
+          - game
+          - manga
+          - movie
+          - music
+          - podcast
+          - tv
+        description: Media type. Does not include `season`/`episode` — those are addressed
+          via separate path segments under `tv`.
+        required: true
+      - in: path
+        name: season_number
+        schema:
+          type: string
+          pattern: ^\d+$
+        required: true
+      - in: path
+        name: source
+        schema:
+          type: string
+          pattern: ^[^/]+$
+        required: true
+      tags:
+      - api
+      security:
+      - bearerAuth: []
+      - ApiKeyAuth: []
+      responses:
+        '204':
+          description: No response body
+  /api/v1/media/{media_type}/{source}/{media_id}/{season_number}/{episode_number}/:
+    get:
+      operationId: retrieveMediaEpisode
+      description: Retrieve details of a specific episode for the authenticated user.
+      parameters:
+      - in: path
+        name: episode_number
+        schema:
+          type: string
+          pattern: ^\d+$
+        required: true
+      - in: path
+        name: media_id
+        schema:
+          type: string
+          pattern: ^[^/]+$
+        required: true
+      - in: path
+        name: media_type
+        schema:
+          type: string
+          enum:
+          - anime
+          - boardgame
+          - book
+          - comic
+          - comicissue
+          - game
+          - manga
+          - movie
+          - music
+          - podcast
+          - tv
+        description: Media type. Does not include `season`/`episode` — those are addressed
+          via separate path segments under `tv`.
+        required: true
+      - in: path
+        name: season_number
+        schema:
+          type: string
+          pattern: ^\d+$
+        required: true
+      - in: path
+        name: source
+        schema:
+          type: string
+          pattern: ^[^/]+$
+        required: true
+      tags:
+      - api
+      security:
+      - bearerAuth: []
+      - ApiKeyAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CompleteEpisodeResponse'
+          description: ''
+        '400':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DetailError'
+          description: ''
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DetailError'
+          description: ''
+        '404':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DetailError'
+          description: ''
+        '500':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DetailError'
+          description: ''
+      x-required-scope: watchlist:read
+    delete:
+      operationId: deleteMediaEpisode
+      description: Delete a tracked episode item for the authenticated user.
+      parameters:
+      - in: path
+        name: episode_number
+        schema:
+          type: string
+          pattern: ^\d+$
+        required: true
+      - in: path
+        name: media_id
+        schema:
+          type: string
+          pattern: ^[^/]+$
+        required: true
+      - in: path
+        name: media_type
+        schema:
+          type: string
+          enum:
+          - anime
+          - boardgame
+          - book
+          - comic
+          - comicissue
+          - game
+          - manga
+          - movie
+          - music
+          - podcast
+          - tv
+        description: Media type. Does not include `season`/`episode` — those are addressed
+          via separate path segments under `tv`.
+        required: true
+      - in: path
+        name: season_number
+        schema:
+          type: string
+          pattern: ^\d+$
+        required: true
+      - in: path
+        name: source
+        schema:
+          type: string
+          pattern: ^[^/]+$
+        required: true
+      tags:
+      - api
+      security:
+      - bearerAuth: []
+      - ApiKeyAuth: []
+      responses:
+        '204':
+          description: No response body
+        '404':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DetailError'
+          description: ''
+  /api/v1/media/{media_type}/{source}/{media_id}/{season_number}/episodes/{episode_number}/watch/:
+    post:
+      operationId: api_v1_media_episodes_watch_create
+      description: |-
+        Record a watch for the episode.
+
+        Optional body field `score` (0-10, or null to clear) sets the
+        episode's rating in the same call, mirroring
+        MediaEpisodeScoreView.patch.
+      parameters:
+      - in: path
+        name: episode_number
+        schema:
+          type: string
+          pattern: ^\d+$
+        required: true
+      - in: path
+        name: media_id
+        schema:
+          type: string
+          pattern: ^[^/]+$
+        required: true
+      - in: path
+        name: media_type
+        schema:
+          type: string
+          enum:
+          - tv
+        description: Episode-level operations are only supported for `tv` media.
+        required: true
+      - in: path
+        name: season_number
+        schema:
+          type: string
+          pattern: ^\d+$
+        required: true
+      - in: path
+        name: source
+        schema:
+          type: string
+          pattern: ^[^/]+$
+        required: true
+      tags:
+      - api
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: true
+      security:
+      - bearerAuth: []
+      - ApiKeyAuth: []
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TrackedMediaResponse'
+          description: ''
+        '404':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DetailError'
+          description: ''
+  /api/v1/media/{media_type}/{source}/{media_id}/{season_number}/progress/:
+    post:
+      operationId: updateMediaSeasonProgress
+      description: Apply an increase/decrease operation to the tracked media.
+      parameters:
+      - in: path
+        name: media_id
+        schema:
+          type: string
+          pattern: ^[^/]+$
+        required: true
+      - in: path
+        name: media_type
+        schema:
+          type: string
+          pattern: ^[^/]+$
+        required: true
+      - in: path
+        name: season_number
+        schema:
+          type: string
+          pattern: ^\d+$
+        required: true
+      - in: path
+        name: source
+        schema:
+          type: string
+          pattern: ^[^/]+$
+        required: true
+      tags:
+      - api
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: true
+      security:
+      - bearerAuth: []
+      - ApiKeyAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TrackedMediaResponse'
+          description: ''
+  /api/v1/media/{media_type}/{source}/{media_id}/history/{consumption_id}/:
+    patch:
+      operationId: updateMediaConsumption
+      description: Update one exact consumption history entry for a media item.
+      parameters:
+      - in: path
+        name: consumption_id
+        schema:
+          type: string
+          pattern: ^\d+$
+        required: true
+      - in: path
+        name: media_id
+        schema:
+          type: string
+          pattern: ^[^/]+$
+        required: true
+      - in: path
+        name: media_type
+        schema:
+          type: string
+          enum:
+          - anime
+          - boardgame
+          - book
+          - comic
+          - comicissue
+          - game
+          - manga
+          - movie
+          - music
+          - podcast
+          - tv
+        description: Media type. Does not include `season`/`episode` — those are addressed
+          via separate path segments under `tv`.
+        required: true
+      - in: path
+        name: source
+        schema:
+          type: string
+          pattern: ^[^/]+$
+        required: true
+      tags:
+      - api
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/MediaUpdateRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/MediaUpdateRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/MediaUpdateRequest'
+      security:
+      - bearerAuth: []
+      - ApiKeyAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ConsumptionResponse'
+          description: ''
+        '400':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DetailError'
+          description: ''
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DetailError'
+          description: ''
+        '404':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DetailError'
+          description: ''
+        '500':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DetailError'
+          description: ''
+      x-required-scope: watchlist:write
+  /api/v1/media/{media_type}/{source}/{media_id}/lists/{list_id}/:
+    put:
+      operationId: api_v1_media_lists_update
+      description: Add a specific media to a specific list.
+      parameters:
+      - in: path
+        name: list_id
+        schema:
+          type: string
+          pattern: ^\d+$
+        required: true
+      - in: path
+        name: media_id
+        schema:
+          type: string
+          pattern: ^[^/]+$
+        required: true
+      - in: path
+        name: media_type
+        schema:
+          type: string
+          enum:
+          - anime
+          - boardgame
+          - book
+          - comic
+          - comicissue
+          - game
+          - manga
+          - movie
+          - music
+          - podcast
+          - tv
+        description: Media type. Does not include `season`/`episode` — those are addressed
+          via separate path segments under `tv`.
+        required: true
+      - in: path
+        name: source
+        schema:
+          type: string
+          pattern: ^[^/]+$
+        required: true
+      tags:
+      - api
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: true
+      security:
+      - bearerAuth: []
+      - ApiKeyAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+                  required:
+                  - list_id
+                  - list_item_id
+                  properties:
+                    list_id:
+                      type: integer
+                    list_item_id:
+                      type: integer
+                      nullable: true
+          description: ''
+    delete:
+      operationId: api_v1_media_lists_destroy
+      description: Remove a specific media from a specific list.
+      parameters:
+      - in: path
+        name: list_id
+        schema:
+          type: string
+          pattern: ^\d+$
+        required: true
+      - in: path
+        name: media_id
+        schema:
+          type: string
+          pattern: ^[^/]+$
+        required: true
+      - in: path
+        name: media_type
+        schema:
+          type: string
+          enum:
+          - anime
+          - boardgame
+          - book
+          - comic
+          - comicissue
+          - game
+          - manga
+          - movie
+          - music
+          - podcast
+          - tv
+        description: Media type. Does not include `season`/`episode` — those are addressed
+          via separate path segments under `tv`.
+        required: true
+      - in: path
+        name: source
+        schema:
+          type: string
+          pattern: ^[^/]+$
+        required: true
+      tags:
+      - api
+      security:
+      - bearerAuth: []
+      - ApiKeyAuth: []
+      responses:
+        '204':
+          description: No response body
+  /api/v1/media/{media_type}/{source}/{media_id}/progress/:
+    post:
+      operationId: updateMediaProgress
+      description: Apply an increase/decrease operation to the tracked media.
+      parameters:
+      - in: path
+        name: media_id
+        schema:
+          type: string
+          pattern: ^[^/]+$
+        required: true
+      - in: path
+        name: media_type
+        schema:
+          type: string
+          pattern: ^[^/]+$
+        required: true
+      - in: path
+        name: source
+        schema:
+          type: string
+          pattern: ^[^/]+$
+        required: true
+      tags:
+      - api
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: true
+      security:
+      - bearerAuth: []
+      - ApiKeyAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TrackedMediaResponse'
+          description: ''
+  /api/v1/media/{media_type}/{source}/{media_id}/tags/:
+    get:
+      operationId: api_v1_media_tags_retrieve
+      description: Return the user's tags applied to this item.
+      parameters:
+      - in: path
+        name: media_id
+        schema:
+          type: string
+          pattern: ^[^/]+$
+        required: true
+      - in: path
+        name: media_type
+        schema:
+          type: string
+          enum:
+          - anime
+          - boardgame
+          - book
+          - comic
+          - comicissue
+          - game
+          - manga
+          - movie
+          - music
+          - podcast
+          - tv
+        description: Media type. Does not include `season`/`episode` — those are addressed
+          via separate path segments under `tv`.
+        required: true
+      - in: path
+        name: source
+        schema:
+          type: string
+          pattern: ^[^/]+$
+        required: true
+      tags:
+      - api
+      security:
+      - bearerAuth: []
+      - ApiKeyAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                - results
+                properties:
+                  results:
+                    type: array
+                    items:
+                      type: object
+                      required:
+                      - id
+                      - name
+                      - created_at
+                      properties:
+                        id:
+                          type: integer
+                        name:
+                          type: string
+                        created_at:
+                          type: string
+                          format: date-time
+                        item_count:
+                          type: integer
+          description: ''
+    put:
+      operationId: api_v1_media_tags_update
+      description: Replace the user's tags on this item with the given tag ids.
+      parameters:
+      - in: path
+        name: media_id
+        schema:
+          type: string
+          pattern: ^[^/]+$
+        required: true
+      - in: path
+        name: media_type
+        schema:
+          type: string
+          enum:
+          - anime
+          - boardgame
+          - book
+          - comic
+          - comicissue
+          - game
+          - manga
+          - movie
+          - music
+          - podcast
+          - tv
+        description: Media type. Does not include `season`/`episode` — those are addressed
+          via separate path segments under `tv`.
+        required: true
+      - in: path
+        name: source
+        schema:
+          type: string
+          pattern: ^[^/]+$
+        required: true
+      tags:
+      - api
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: true
+      security:
+      - bearerAuth: []
+      - ApiKeyAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                - results
+                properties:
+                  results:
+                    type: array
+                    items:
+                      type: object
+                      required:
+                      - id
+                      - name
+                      - created_at
+                      properties:
+                        id:
+                          type: integer
+                        name:
+                          type: string
+                        created_at:
+                          type: string
+                          format: date-time
+                        item_count:
+                          type: integer
+          description: ''
+  /api/v1/music/songs/plays/:
+    post:
+      operationId: api_v1_music_songs_plays_create
+      description: Add a play for a track on an album.
+      tags:
+      - api
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: true
+      security:
+      - bearerAuth: []
+      - ApiKeyAuth: []
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TrackedMediaResponse'
+          description: ''
+  /api/v1/podcasts/episodes/plays/:
+    post:
+      operationId: api_v1_podcasts_episodes_plays_create
+      description: |-
+        Add a completed play.
+
+        If end_date is omitted or blank, use the current server time. Report
+        a repeat within five minutes as HTTP 200 with duplicate set to true.
+      tags:
+      - api
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: true
+      security:
+      - bearerAuth: []
+      - ApiKeyAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TrackedMediaResponse'
+          description: ''
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TrackedMediaResponse'
+          description: ''
+  /api/v1/search/{media_type}/:
+    get:
+      operationId: searchMedia
+      description: Search for media using the specified provider.
+      parameters:
+      - in: query
+        name: limit
+        schema:
+          type: integer
+        description: 'Maximum number of results to return (default: 20).'
+      - in: path
+        name: media_type
+        schema:
+          type: string
+          enum:
+          - anime
+          - boardgame
+          - book
+          - comic
+          - comicissue
+          - game
+          - manga
+          - movie
+          - music
+          - podcast
+          - tv
+        description: Media type. Does not include `season`/`episode` — those are addressed
+          via separate path segments under `tv`.
+        required: true
+      - in: query
+        name: offset
+        schema:
+          type: integer
+        description: 'Offset for pagination (default: 0).'
+      - in: query
+        name: search
+        schema:
+          type: string
+        description: Search query passed to the provider.
+      - in: query
+        name: source
+        schema:
+          type: string
+        description: Provider to search (e.g. `tmdb`, `igdb`). Defaults to the media
+          type's default provider when omitted.
+      tags:
+      - api
+      security:
+      - bearerAuth: []
+      - ApiKeyAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SearchEnvelope'
+              examples:
+                GameSearchResult(igdb):
+                  value:
+                    pagination:
+                      total: 1
+                      limit: 20
+                      offset: 0
+                      next: null
+                      previous: null
+                    results:
+                    - media_id: '2256'
+                      source: igdb
+                      media_type: game
+                      title: Super Mario Strikers
+                      image: https://images.igdb.com/igdb/image/upload/t_original/example.jpg
+                      year: 2005
+                      platforms:
+                      - Nintendo GameCube
+                  summary: Game search result (igdb)
+                  description: Game results include `platforms` and `year` so a client
+                    can pick the right release without a follow-up detail fetch. If
+                    a title is ambiguous across platforms, all candidates are returned
+                    rather than a single guess.
+          description: ''
+        '400':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DetailError'
+          description: ''
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DetailError'
+          description: ''
+        '500':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DetailError'
+          description: ''
+      x-required-scope: catalog:read
+  /api/v1/statistics/overview/:
+    get:
+      operationId: api_v1_statistics_overview_retrieve
+      description: 'Return statistics for the date range (default: user''s preference).'
+      tags:
+      - api
+      security:
+      - bearerAuth: []
+      - ApiKeyAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                - range
+                - statistics
+                properties:
+                  range:
+                    type: object
+                    additionalProperties: true
+                  statistics:
+                    type: object
+                    additionalProperties: true
+          description: ''
+  /api/v1/tags/:
+    get:
+      operationId: api_v1_tags_retrieve
+      description: Return all tags for the user with item counts.
+      tags:
+      - api
+      security:
+      - bearerAuth: []
+      - ApiKeyAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                - results
+                properties:
+                  results:
+                    type: array
+                    items:
+                      type: object
+                      required:
+                      - id
+                      - name
+                      - created_at
+                      properties:
+                        id:
+                          type: integer
+                        name:
+                          type: string
+                        created_at:
+                          type: string
+                          format: date-time
+                        item_count:
+                          type: integer
+          description: ''
+    post:
+      operationId: api_v1_tags_create
+      description: Create a tag (names are unique per user, case-insensitive).
+      tags:
+      - api
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: true
+      security:
+      - bearerAuth: []
+      - ApiKeyAuth: []
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                - id
+                - name
+                - created_at
+                properties:
+                  id:
+                    type: integer
+                  name:
+                    type: string
+                  created_at:
+                    type: string
+                    format: date-time
+                  item_count:
+                    type: integer
+          description: ''
+  /api/v1/tags/{tag_id}/:
+    patch:
+      operationId: api_v1_tags_partial_update
+      description: Rename the tag.
+      parameters:
+      - in: path
+        name: tag_id
+        schema:
+          type: string
+          pattern: ^\d+$
+        required: true
+      tags:
+      - api
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: true
+      security:
+      - bearerAuth: []
+      - ApiKeyAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                - id
+                - name
+                - created_at
+                properties:
+                  id:
+                    type: integer
+                  name:
+                    type: string
+                  created_at:
+                    type: string
+                    format: date-time
+                  item_count:
+                    type: integer
+          description: ''
+    delete:
+      operationId: api_v1_tags_destroy
+      description: Delete the tag and its item associations.
+      parameters:
+      - in: path
+        name: tag_id
+        schema:
+          type: string
+          pattern: ^\d+$
+        required: true
+      tags:
+      - api
+      security:
+      - bearerAuth: []
+      - ApiKeyAuth: []
+      responses:
+        '204':
+          description: No response body
+  /api/v1/tasks/{task_id}/:
+    get:
+      operationId: api_v1_tasks_retrieve
+      description: Return the current state of the task.
+      parameters:
+      - in: path
+        name: task_id
+        schema:
+          type: string
+          pattern: ^[\w-]+$
+        required: true
+      tags:
+      - api
+      security:
+      - bearerAuth: []
+      - ApiKeyAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                - task_id
+                - status
+                properties:
+                  task_id:
+                    type: string
+                  task_name:
+                    type: string
+                    nullable: true
+                  status:
+                    type: string
+                  date_created:
+                    type: string
+                    format: date-time
+                    nullable: true
+                  date_done:
+                    type: string
+                    format: date-time
+                    nullable: true
+                  result:
+                    type: string
+                    nullable: true
+          description: ''
+  /api/v1/user/preferences/:
+    get:
+      operationId: api_v1_user_preferences_retrieve
+      description: Return the current preference values and valid choices.
+      tags:
+      - api
+      security:
+      - bearerAuth: []
+      - ApiKeyAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                - preferences
+                - choices
+                properties:
+                  preferences:
+                    type: object
+                    additionalProperties: true
+                  choices:
+                    type: object
+                    additionalProperties: true
+          description: ''
+    patch:
+      operationId: api_v1_user_preferences_partial_update
+      description: |-
+        Update only the preference fields present in the request body.
+
+        Omitted fields keep their stored value. Clients that change one
+        preference, such as the header theme toggle, therefore do not need to
+        echo the rest of the form back.
+      tags:
+      - api
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: true
+      security:
+      - bearerAuth: []
+      - ApiKeyAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                - preferences
+                - updated_fields
+                properties:
+                  preferences:
+                    type: object
+                    additionalProperties: true
+                  updated_fields:
+                    type: array
+                    items:
+                      type: string
+          description: ''
+  /apis/listenbrainz/1/submit-listens/:
+    post:
+      operationId: submitListenBrainzListens
+      description: 'Accepts scrobbles from any ListenBrainz-compatible client. Authenticate
+        with `Authorization: Token <your API token>`. `playing_now` submissions are
+        accepted but not recorded.'
+      summary: Submit listens (ListenBrainz-compatible)
+      tags:
+      - apis
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+              - listen_type
+              - payload
+              properties:
+                listen_type:
+                  type: string
+                  enum:
+                  - single
+                  - import
+                  - playing_now
+                payload:
+                  type: array
+                  items:
+                    type: object
+      security:
+      - listenBrainzToken: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ListenBrainzStatus'
+          description: ''
+        '400':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ListenBrainzError'
+          description: ''
+        '401':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DetailError'
+          description: ''
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ListenBrainzError'
+          description: ''
+      x-required-scope: scrobble:write
+  /apis/listenbrainz/1/validate-token/:
+    get:
+      operationId: validateListenBrainzToken
+      description: Reports whether the supplied token is valid. ListenBrainz clients
+        call this on startup to confirm the connection.
+      summary: Validate token (ListenBrainz-compatible)
+      tags:
+      - apis
+      security:
+      - listenBrainzToken: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ListenBrainzToken'
+          description: ''
+        '401':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DetailError'
+          description: ''
+      x-required-scope: any
+components:
+  schemas:
+    CompleteEpisodeResponse:
+      type: object
+      description: Episode detail uses the same envelope with numbers inside details.
+      properties:
+        id:
+          type: integer
+          nullable: true
+        media_id:
+          type: string
+          nullable: true
+        source:
+          type: string
+          nullable: true
+        source_url:
+          type: string
+          nullable: true
+        media_type:
+          type: string
+        title:
+          type: string
+          nullable: true
+        max_progress:
+          type: integer
+        episodes_left:
+          type: integer
+          nullable: true
+        total_episodes_left:
+          type: integer
+          nullable: true
+        image:
+          type: string
+          nullable: true
+        backdrop:
+          type: string
+          nullable: true
+        synopsis:
+          type: string
+          nullable: true
+        genres:
+          type: array
+          items:
+            type: string
+          nullable: true
+        score:
+          type: number
+          format: double
+          nullable: true
+        score_count:
+          type: integer
+          nullable: true
+        imdb_rating:
+          type: number
+          format: double
+          nullable: true
+        imdb_rating_count:
+          type: integer
+          nullable: true
+        cast:
+          type: array
+          items:
+            type: object
+            additionalProperties: {}
+        crew:
+          type: array
+          items:
+            type: object
+            additionalProperties: {}
+        details:
+          $ref: '#/components/schemas/EpisodeDetails'
+        related:
+          type: object
+          additionalProperties: {}
+        item_id:
+          type: string
+          nullable: true
+        parent_id:
+          type: string
+          nullable: true
+        tracked:
+          type: boolean
+        consumptions_number:
+          type: integer
+        consumptions:
+          type: array
+          items:
+            $ref: '#/components/schemas/ConsumptionResponse'
+        lists:
+          type: array
+          items:
+            type: object
+            additionalProperties: {}
+        media_type_status:
+          allOf:
+          - $ref: '#/components/schemas/MediaTypeStatus'
+          nullable: true
+      required:
+      - backdrop
+      - cast
+      - consumptions
+      - consumptions_number
+      - crew
+      - details
+      - episodes_left
+      - genres
+      - id
+      - image
+      - imdb_rating
+      - imdb_rating_count
+      - item_id
+      - lists
+      - max_progress
+      - media_id
+      - media_type
+      - media_type_status
+      - parent_id
+      - related
+      - score
+      - score_count
+      - source
+      - source_url
+      - synopsis
+      - title
+      - total_episodes_left
+      - tracked
+    CompleteGameResponse:
+      type: object
+      description: Game detail uses the same envelope with lengths data inside details.
+      properties:
+        id:
+          type: integer
+          nullable: true
+        media_id:
+          type: string
+          nullable: true
+        source:
+          type: string
+          nullable: true
+        source_url:
+          type: string
+          nullable: true
+        media_type:
+          type: string
+        title:
+          type: string
+          nullable: true
+        max_progress:
+          type: integer
+        episodes_left:
+          type: integer
+          nullable: true
+        total_episodes_left:
+          type: integer
+          nullable: true
+        image:
+          type: string
+          nullable: true
+        backdrop:
+          type: string
+          nullable: true
+        synopsis:
+          type: string
+          nullable: true
+        genres:
+          type: array
+          items:
+            type: string
+          nullable: true
+        score:
+          type: number
+          format: double
+          nullable: true
+        score_count:
+          type: integer
+          nullable: true
+        imdb_rating:
+          type: number
+          format: double
+          nullable: true
+        imdb_rating_count:
+          type: integer
+          nullable: true
+        cast:
+          type: array
+          items:
+            type: object
+            additionalProperties: {}
+        crew:
+          type: array
+          items:
+            type: object
+            additionalProperties: {}
+        details:
+          $ref: '#/components/schemas/GameDetails'
+        related:
+          type: object
+          additionalProperties: {}
+        item_id:
+          type: string
+          nullable: true
+        parent_id:
+          type: string
+          nullable: true
+        tracked:
+          type: boolean
+        consumptions_number:
+          type: integer
+        consumptions:
+          type: array
+          items:
+            $ref: '#/components/schemas/ConsumptionResponse'
+        lists:
+          type: array
+          items:
+            type: object
+            additionalProperties: {}
+        media_type_status:
+          allOf:
+          - $ref: '#/components/schemas/MediaTypeStatus'
+          nullable: true
+      required:
+      - backdrop
+      - cast
+      - consumptions
+      - consumptions_number
+      - crew
+      - details
+      - episodes_left
+      - genres
+      - id
+      - image
+      - imdb_rating
+      - imdb_rating_count
+      - item_id
+      - lists
+      - max_progress
+      - media_id
+      - media_type
+      - media_type_status
+      - parent_id
+      - related
+      - score
+      - score_count
+      - source
+      - source_url
+      - synopsis
+      - title
+      - total_episodes_left
+      - tracked
+    CompleteMediaItemResponse:
+      oneOf:
+      - $ref: '#/components/schemas/CompleteMediaResponse'
+      - $ref: '#/components/schemas/CompleteGameResponse'
+    CompleteMediaResponse:
+      type: object
+      description: Exact top-level CompleteMediaSerializer envelope.
+      properties:
+        id:
+          type: integer
+          nullable: true
+        media_id:
+          type: string
+          nullable: true
+        source:
+          type: string
+          nullable: true
+        source_url:
+          type: string
+          nullable: true
+        media_type:
+          type: string
+        title:
+          type: string
+          nullable: true
+        max_progress:
+          type: integer
+        episodes_left:
+          type: integer
+          nullable: true
+        total_episodes_left:
+          type: integer
+          nullable: true
+        image:
+          type: string
+          nullable: true
+        backdrop:
+          type: string
+          nullable: true
+        synopsis:
+          type: string
+          nullable: true
+        genres:
+          type: array
+          items:
+            type: string
+          nullable: true
+        score:
+          type: number
+          format: double
+          nullable: true
+        score_count:
+          type: integer
+          nullable: true
+        imdb_rating:
+          type: number
+          format: double
+          nullable: true
+        imdb_rating_count:
+          type: integer
+          nullable: true
+        cast:
+          type: array
+          items:
+            type: object
+            additionalProperties: {}
+        crew:
+          type: array
+          items:
+            type: object
+            additionalProperties: {}
+        details:
+          type: object
+          additionalProperties: {}
+        related:
+          type: object
+          additionalProperties: {}
+        item_id:
+          type: string
+          nullable: true
+        parent_id:
+          type: string
+          nullable: true
+        tracked:
+          type: boolean
+        consumptions_number:
+          type: integer
+        consumptions:
+          type: array
+          items:
+            $ref: '#/components/schemas/ConsumptionResponse'
+        lists:
+          type: array
+          items:
+            type: object
+            additionalProperties: {}
+        media_type_status:
+          allOf:
+          - $ref: '#/components/schemas/MediaTypeStatus'
+          nullable: true
+      required:
+      - backdrop
+      - cast
+      - consumptions
+      - consumptions_number
+      - crew
+      - details
+      - episodes_left
+      - genres
+      - id
+      - image
+      - imdb_rating
+      - imdb_rating_count
+      - item_id
+      - lists
+      - max_progress
+      - media_id
+      - media_type
+      - media_type_status
+      - parent_id
+      - related
+      - score
+      - score_count
+      - source
+      - source_url
+      - synopsis
+      - title
+      - total_episodes_left
+      - tracked
+    ConsumptionResponse:
+      type: object
+      description: Exact HistorySerializer representation.
+      properties:
+        consumption_id:
+          type: integer
+        created:
+          type: string
+          format: date-time
+          nullable: true
+        score:
+          type: number
+          format: double
+          nullable: true
+        progress:
+          type: number
+          format: double
+          nullable: true
+        progressed_at:
+          type: string
+          format: date-time
+          nullable: true
+        status:
+          type: integer
+          nullable: true
+        start_date:
+          type: string
+          format: date-time
+          nullable: true
+        end_date:
+          type: string
+          format: date-time
+          nullable: true
+        notes:
+          type: string
+          nullable: true
+        source:
+          type: string
+          nullable: true
+        external_id:
+          type: string
+          nullable: true
+      required:
+      - consumption_id
+      - created
+      - end_date
+      - external_id
+      - notes
+      - progress
+      - progressed_at
+      - score
+      - source
+      - start_date
+      - status
+    DetailError:
+      type: object
+      description: Shared API error body.
+      properties:
+        detail:
+          type: string
+        errors: {}
+      required:
+      - detail
+    EpisodeDetails:
+      type: object
+      description: Stable episode detail fields plus provider-owned nested records.
+      properties:
+        air_date:
+          type: string
+          nullable: true
+        episode_number:
+          type: integer
+        season_number:
+          type: integer
+        runtime:
+          type: integer
+          nullable: true
+        episode_type:
+          type: string
+          nullable: true
+        crew:
+          type: array
+          items:
+            type: object
+            additionalProperties: {}
+        guest_stars:
+          type: array
+          items:
+            type: object
+            additionalProperties: {}
+      required:
+      - air_date
+      - crew
+      - episode_number
+      - episode_type
+      - guest_stars
+      - runtime
+      - season_number
+    GameDetails:
+      type: object
+      description: Game detail fields plus the provider-owned game-lengths record.
+      properties:
+        provider_game_lengths:
+          allOf:
+          - $ref: '#/components/schemas/ProviderGameLengths'
+          nullable: true
+    HltbGameLength:
+      type: object
+      description: Full persisted HLTB game-length detail.
+      properties:
+        game_id:
+          type: integer
+        url:
+          type: string
+        title:
+          type: string
+        release_year:
+          type: integer
+          nullable: true
+        summary:
+          $ref: '#/components/schemas/HltbGameLengthSummary'
+        counts:
+          type: object
+          additionalProperties:
+            type: integer
+        single_player_table:
+          type: array
+          items:
+            type: object
+            additionalProperties: {}
+        platform_table:
+          type: array
+          items:
+            type: object
+            additionalProperties: {}
+      required:
+      - counts
+      - game_id
+      - platform_table
+      - release_year
+      - single_player_table
+      - summary
+      - title
+      - url
+    HltbGameLengthSummary:
+      type: object
+      description: HLTB main/main+extras/completionist/all-styles minute estimates.
+      properties:
+        main_minutes:
+          type: integer
+          nullable: true
+        main_plus_minutes:
+          type: integer
+          nullable: true
+        completionist_minutes:
+          type: integer
+          nullable: true
+        all_styles_minutes:
+          type: integer
+          nullable: true
+      required:
+      - all_styles_minutes
+      - completionist_minutes
+      - main_minutes
+      - main_plus_minutes
+    IgdbGameLength:
+      type: object
+      description: Full persisted IGDB game-length detail.
+      properties:
+        game_id:
+          type: integer
+        summary:
+          $ref: '#/components/schemas/IgdbGameLengthSummary'
+      required:
+      - game_id
+      - summary
+    IgdbGameLengthSummary:
+      type: object
+      description: IGDB hastily/normally/completely second estimates.
+      properties:
+        hastily_seconds:
+          type: integer
+        normally_seconds:
+          type: integer
+        completely_seconds:
+          type: integer
+        count:
+          type: integer
+      required:
+      - completely_seconds
+      - count
+      - hastily_seconds
+      - normally_seconds
+    InfoResponse:
+      type: object
+      description: Exact public info response.
+      properties:
+        version:
+          type: string
+        debug:
+          type: boolean
+        frontend_url:
+          type: string
+        language:
+          type: string
+        timezone:
+          type: string
+        admin_enabled:
+          type: boolean
+        track_time:
+          type: boolean
+      required:
+      - admin_enabled
+      - debug
+      - frontend_url
+      - language
+      - timezone
+      - track_time
+      - version
+    ListenBrainzError:
+      type: object
+      description: ListenBrainz-compatible error body.
+      properties:
+        code:
+          type: integer
+        error:
+          type: string
+      required:
+      - code
+      - error
+    ListenBrainzStatus:
+      type: object
+      description: Successful submission response.
+      properties:
+        status:
+          type: string
+      required:
+      - status
+    ListenBrainzToken:
+      type: object
+      description: Successful token validation response.
+      properties:
+        code:
+          type: integer
+        message:
+          type: string
+        valid:
+          type: boolean
+        user_name:
+          type: string
+      required:
+      - code
+      - message
+      - user_name
+      - valid
+    MediaTypeStatus:
+      type: object
+      description: Whether the media type of this item is enabled for the user.
+      properties:
+        media_type:
+          type: string
+        enabled:
+          type: boolean
+        message:
+          type: string
+          nullable: true
+      required:
+      - enabled
+      - media_type
+      - message
+    MediaUpdateRequest:
+      type: object
+      description: Fields accepted by tracked-media PATCH operations.
+      properties:
+        score:
+          type: number
+          format: double
+          nullable: true
+        status:
+          oneOf:
+          - type: integer
+          - type: string
+          nullable: true
+        progress:
+          type: number
+          format: double
+          nullable: true
+        start_date:
+          type: string
+          description: ISO 8601 date or date-time accepted by this deployment.
+          nullable: true
+        end_date:
+          type: string
+          description: ISO 8601 date or date-time accepted by this deployment.
+          nullable: true
+        notes:
+          type: string
+          nullable: true
+        entry_source:
+          type: string
+          nullable: true
+    NextEpisode:
+      type: object
+      description: The next released, unwatched TV-like episode.
+      properties:
+        season_number:
+          type: integer
+          nullable: true
+        episode_number:
+          type: integer
+        air_date:
+          type: string
+          format: date-time
+          nullable: true
+      required:
+      - air_date
+      - episode_number
+      - season_number
+    Pagination:
+      type: object
+      description: Stable limit/offset response metadata.
+      properties:
+        total:
+          type: integer
+        limit:
+          type: integer
+        offset:
+          type: integer
+        next:
+          type: string
+          format: uri
+          nullable: true
+        previous:
+          type: string
+          format: uri
+          nullable: true
+      required:
+      - limit
+      - next
+      - offset
+      - previous
+      - total
+    ProviderGameLengths:
+      type: object
+      description: Full persisted game-length payload, as returned on the detail endpoint.
+      properties:
+        active_source:
+          type: string
+        state:
+          $ref: '#/components/schemas/StateEnum'
+        hltb:
+          $ref: '#/components/schemas/HltbGameLength'
+        igdb:
+          $ref: '#/components/schemas/IgdbGameLength'
+      required:
+      - active_source
+      - state
+    ProviderGameLengthsSummary:
+      type: object
+      description: 'Search-result length summary: totals only, no per-platform tables.'
+      properties:
+        active_source:
+          type: string
+        hltb_summary:
+          $ref: '#/components/schemas/HltbGameLengthSummary'
+        igdb_summary:
+          $ref: '#/components/schemas/IgdbGameLengthSummary'
+      required:
+      - active_source
+    SearchEnvelope:
+      type: object
+      description: Search response envelope.
+      properties:
+        pagination:
+          $ref: '#/components/schemas/Pagination'
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/SearchResult'
+      required:
+      - pagination
+      - results
+    SearchResult:
+      type: object
+      description: Fields guaranteed by every provider search result.
+      properties:
+        media_id:
+          oneOf:
+          - type: string
+          - type: integer
+        source:
+          type: string
+        media_type:
+          type: string
+        title:
+          type: string
+          nullable: true
+        image:
+          type: string
+          nullable: true
+        provider_game_lengths_summary:
+          $ref: '#/components/schemas/ProviderGameLengthsSummary'
+      required:
+      - image
+      - media_id
+      - media_type
+      - source
+      - title
+    Show:
+      type: object
+      description: The parent show/podcast for an episode-like tracked media entry.
+      properties:
+        id:
+          type: integer
+          nullable: true
+        title:
+          type: string
+        slug:
+          type: string
+        podcast_uuid:
+          type: string
+          nullable: true
+        image:
+          type: string
+        website_url:
+          type: string
+      required:
+      - id
+      - image
+      - podcast_uuid
+      - slug
+      - title
+      - website_url
+    StateEnum:
+      enum:
+      - ready
+      - pending
+      - unavailable
+      type: string
+      description: |-
+        * `ready` - ready
+        * `pending` - pending
+        * `unavailable` - unavailable
+    TrackMediaRequest:
+      type: object
+      description: Accepted provider, manual-item, and tracking fields.
+      properties:
+        source:
+          type: string
+        media_id:
+          oneOf:
+          - type: string
+          - type: integer
+        title:
+          type: string
+        image:
+          type: string
+        image_url:
+          type: string
+          format: uri
+        season_number:
+          type: integer
+          nullable: true
+        episode_number:
+          type: integer
+          nullable: true
+        parent_tv:
+          type: integer
+        parent_season:
+          type: integer
+        library_media_type:
+          type: string
+        score:
+          type: number
+          format: double
+          nullable: true
+        status:
+          oneOf:
+          - type: integer
+          - type: string
+          nullable: true
+        progress:
+          type: number
+          format: double
+          nullable: true
+        start_date:
+          type: string
+          description: ISO 8601 date or date-time accepted by this deployment.
+          nullable: true
+        end_date:
+          type: string
+          description: ISO 8601 date or date-time accepted by this deployment.
+          nullable: true
+        notes:
+          type: string
+          nullable: true
+    TrackedMediaEnvelope:
+      type: object
+      description: Paginated tracked-media collection.
+      properties:
+        pagination:
+          $ref: '#/components/schemas/Pagination'
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/TrackedMediaResponse'
+      required:
+      - pagination
+      - results
+    TrackedMediaResponse:
+      type: object
+      description: Exact MediaSerializer representation returned after tracking.
+      properties:
+        id:
+          type: integer
+          nullable: true
+        consumption_id:
+          type: integer
+          nullable: true
+        item:
+          type: object
+          additionalProperties: {}
+          nullable: true
+        item_id:
+          type: string
+          nullable: true
+        parent_id:
+          type: string
+          nullable: true
+        tracked:
+          type: boolean
+        created_at:
+          type: string
+          format: date-time
+          nullable: true
+        score:
+          type: number
+          format: double
+          nullable: true
+        status:
+          type: integer
+          nullable: true
+        progress:
+          type: number
+          format: double
+          nullable: true
+        episodes_left:
+          type: integer
+          nullable: true
+        total_episodes_left:
+          type: integer
+          nullable: true
+        progress_scope:
+          type: string
+          nullable: true
+        progress_unit:
+          type: string
+          nullable: true
+        progressed_at:
+          type: string
+          format: date-time
+          nullable: true
+        start_date:
+          type: string
+          format: date-time
+          nullable: true
+        end_date:
+          type: string
+          format: date-time
+          nullable: true
+        notes:
+          type: string
+          nullable: true
+        source:
+          type: string
+          nullable: true
+        lists:
+          type: array
+          items:
+            type: object
+            additionalProperties: {}
+        next_episode:
+          allOf:
+          - $ref: '#/components/schemas/NextEpisode'
+          nullable: true
+        show:
+          allOf:
+          - $ref: '#/components/schemas/Show'
+          nullable: true
+      required:
+      - consumption_id
+      - created_at
+      - end_date
+      - episodes_left
+      - id
+      - item
+      - item_id
+      - lists
+      - next_episode
+      - notes
+      - parent_id
+      - progress
+      - progress_scope
+      - progress_unit
+      - progressed_at
+      - score
+      - show
+      - source
+      - start_date
+      - status
+      - total_episodes_left
+      - tracked
+    TrackedMediaUpdateRequest:
+      type: object
+      description: Tracked-media PATCH fields, including the shared item's artwork
+        URL.
+      properties:
+        score:
+          type: number
+          format: double
+          nullable: true
+        status:
+          oneOf:
+          - type: integer
+          - type: string
+          nullable: true
+        progress:
+          type: number
+          format: double
+          nullable: true
+        start_date:
+          type: string
+          description: ISO 8601 date or date-time accepted by this deployment.
+          nullable: true
+        end_date:
+          type: string
+          description: ISO 8601 date or date-time accepted by this deployment.
+          nullable: true
+        notes:
+          type: string
+          nullable: true
+        entry_source:
+          type: string
+          nullable: true
+        image_url:
+          type: string
+          format: uri
+  securitySchemes:
+    ApiKeyAuth:
+      type: apiKey
+      in: header
+      name: X-API-Key
+    bearerAuth:
+      type: http
+      scheme: bearer
+    listenBrainzToken:
+      type: apiKey
+      in: header
+      name: Authorization
+      description: ListenBrainz token in the form `Token <token>`.
+servers:
+- url: ../
+x-floppy-scope: verified-mcp-and-grounding-subset
