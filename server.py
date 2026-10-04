@@ -15,6 +15,7 @@ from media_stack.floppy import (
     get_floppy_liked_movies,
     get_floppy_disliked_movies,
     search_floppy_movie_by_title,
+    get_floppy_top_picks_movie,
 )
 from media_stack.formatting import to_tsv as _to_tsv
 from media_stack.radarr import (
@@ -60,6 +61,7 @@ def _register_tools() -> None:
         get_floppy_liked_movies,
         get_floppy_disliked_movies,
         get_floppy_trending_movies,
+        get_floppy_top_picks_movie,
         search_floppy_movie_by_title,
     ]
 

@@ -337,3 +337,58 @@ def search_floppy_movie_by_title(title: str, limit: int = 5) -> str:
         return f"Error: Failed to search movies on Floppy: {exc}"
 
     return to_tsv(movies)
+
+def get_floppy_top_picks_movie(limit: int = 10) -> str:
+    """Get top picks movies from Floppy.
+    INPUT: limit (int, default 10).
+    OUTPUT: TSV rows of top picks movies, or Error string.
+    """
+    config = get_floppy_config()
+    if isinstance(config, str):
+        return config
+    floppy_url, api_key = config
+
+    movies: list[dict] = []
+
+    params = {
+        "media_type": "movie",
+    }
+
+    try:
+        response = requests.get(
+            f"{floppy_url}/api/v1/discover/",
+            params=params,
+            headers={"X-API-Key": api_key},
+            timeout=20,
+        )
+        response.raise_for_status()
+        payload = response.json()
+        rows = payload["rows"]
+        for row in rows:
+            key = row.get("key")
+            if key != "top_picks_for_you":
+                continue
+            items = row.get("items") or []
+            for item in items:
+                movie = get_floppy_movie_details(media_id=item.get("media_id"), source=item.get("source"))
+                movie_details = movie.get("details") or {}
+                movies.append(
+                    {
+                        "title": item.get("title"),
+                        "year": item.get("release_date", "")[:4],
+                        "runtime": movie_details.get("runtime") or None,
+                        "rating": item.get("rating") or None,
+                        "genres": item.get("genres", []),
+                        "certification": movie_details.get("certification") or None,
+                        "language": (movie_details.get("languages") or [None])[0],
+                        "overview": movie.get("synopsis"),
+                    }
+                )
+                if len(movies) == limit:
+                    break
+            if key == "top_picks_for_you":
+                break
+    except (requests.RequestException, ValueError, KeyError, TypeError) as exc:
+        return f"Error: Failed to fetch top picks movies from Floppy: {exc}"
+
+    return to_tsv(movies)
