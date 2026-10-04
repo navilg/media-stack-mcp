@@ -55,12 +55,9 @@ def get_floppy_watched_movies(days: int = 30, limit: int = 200) -> str:
                     "watched_at": entry.get("played_at_local"),
                     "title": entry.get("display_title") or entry.get("title") or item.get("title"),
                     "year": item.get("year") or details.get("year"),
-                    "media_id": item.get("media_id") or entry.get("media_id"),
-                    "source": item.get("source") or entry.get("entry_source"),
-                    "rating": entry.get("score"),
+                    "user_rating": entry.get("score"),
                     "genre": entry.get("genres") or item.get("genres") or details.get("genres"),
                     "play_count": entry.get("play_count"),
-                    "history_entry_key": entry.get("entry_key"),
                 }
             )
     except requests.RequestException as exc:
