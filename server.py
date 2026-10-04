@@ -10,6 +10,7 @@ from media_stack.config import (
 )
 from media_stack.constants import VALID_TOOLSETS
 from media_stack.floppy import (
+    get_floppy_trending_movies,
     get_floppy_watched_movies,
     get_floppy_liked_movies,
     get_floppy_disliked_movies,
@@ -57,6 +58,7 @@ def _register_tools() -> None:
         get_floppy_watched_movies,
         get_floppy_liked_movies,
         get_floppy_disliked_movies,
+        get_floppy_trending_movies,
     ]
 
     trakt_tools = [
