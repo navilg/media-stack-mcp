@@ -289,3 +289,51 @@ def get_floppy_trending_movies() -> str:
         return f"Error: Failed to fetch trending movies from Floppy: {exc}"
 
     return to_tsv(movies)
+
+def search_floppy_movie_by_title(title: str, limit: int = 5) -> str:
+    """Search for movies on Floppy by title.
+    INPUT: title (str), limit (int, default 5).
+    OUTPUT: TSV rows of search results, or Error string.
+    """
+    config = get_floppy_config()
+    if isinstance(config, str):
+        return config
+    floppy_url, api_key = config
+
+    params = {
+        "search": title,
+        "limit": limit,
+    }
+    movies: list[dict] = []
+
+    try:
+        response = requests.get(
+            f"{floppy_url}/api/v1/search/movie/",
+            params=params,
+            headers={"X-API-Key": api_key},
+            timeout=20,
+        )
+        response.raise_for_status()
+        payload = response.json()
+        items = payload.get("results") or []
+        for item in items:
+            movie = get_floppy_movie_details(media_id=item.get("media_id"), source=item.get("source"))
+            movie_details = movie.get("details") or {}
+            movies.append(
+                {
+                    "title": item.get("title"),
+                    "year": item.get("year", ""),
+                    "runtime": movie_details.get("runtime") or None,
+                    "rating": movie.get("score") or None,
+                    "genres": movie.get("genres", []),
+                    "certification": movie_details.get("certification") or None,
+                    "language": (movie_details.get("languages") or [None])[0],
+                    "overview": movie.get("synopsis"),
+                }
+            )
+            if len(movies) == limit:
+                break
+    except (requests.RequestException, ValueError, KeyError, TypeError) as exc:
+        return f"Error: Failed to search movies on Floppy: {exc}"
+
+    return to_tsv(movies)
