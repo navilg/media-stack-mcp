@@ -23,7 +23,16 @@ def get_floppy_movie_details(media_id: str, source: str = "tmdb") -> dict:
             timeout=20,
         )
         response.raise_for_status()
-        return response.json()
+        payload = response.json()
+        fields_to_remove = (
+            "id", "source_url", "max_progress", "episodes_left",
+            "total_episodes_left", "image", "backdrop", "cast",
+            "crew", "related", "item_id", "parent_id", "tracked",
+            "consumptions_number", "consumptions", "lists", "media_type_status"
+        )
+        for key in fields_to_remove:
+            payload.pop(key, None)
+        return payload
     except requests.RequestException as exc:
         return {"error": f"Error: Failed to fetch movie details from Floppy: {exc}"}
     except (KeyError, TypeError, ValueError, AttributeError):
@@ -329,6 +338,7 @@ def search_floppy_movie_by_title(title: str, limit: int = 5) -> str:
                     "certification": movie_details.get("certification") or None,
                     "language": (movie_details.get("languages") or [None])[0],
                     "overview": movie.get("synopsis"),
+                    "source": item.get("source"),
                 }
             )
             if len(movies) == limit:
