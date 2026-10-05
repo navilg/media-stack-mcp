@@ -392,6 +392,7 @@ def get_floppy_top_picks_movie(limit: int = 10) -> str:
                         "certification": movie_details.get("certification") or None,
                         "language": (movie_details.get("languages") or [None])[0],
                         "overview": movie.get("synopsis"),
+                        "reason": item.get("source_reason") or None,
                     }
                 )
                 if len(movies) == limit:
