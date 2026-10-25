@@ -659,6 +659,109 @@ def test_get_sonarr_validation_errors():
     finally:
         _restore_env(previous)
 
+def test_get_sonarr_shows_output_formats():
+    """Short output is the default; full output preserves all series metadata."""
+    shows = [
+        {
+            "title": "Zulu", "year": 2020, "monitored": True, "status": "continuing",
+            "path": "/tv/Zulu", "seasons": [{"seasonNumber": 1}, {"seasonNumber": 2}],
+            "statistics": {
+                "episodeFileCount": 5, "totalEpisodeCount": 10, "sizeOnDisk": 1610612736,
+            },
+            "genres": ["Drama", "Mystery"], "runtime": 45, "network": "Example",
+            "certification": "TV-14", "originalLanguage": {"name": "English"},
+            "tvdbId": 123, "imdbId": "tt123",
+        },
+        {"title": "Alpha", "year": 2021, "monitored": False},
+    ]
+    short_output = (
+        "title\tyear\tmonitored\tepisode_file_count\n"
+        "Alpha\t2021\tFalse\t\nZulu\t2020\tTrue\t5"
+    )
+    full_output = (
+        "title\tyear\tmonitored\tstatus\tpath\tseason_count\tepisode_file_count\t"
+        "total_episode_count\tsize_on_disk_gb\tgenres\truntime\tnetwork\t"
+        "certification\tlanguage\ttvdb_id\timdb_id\n"
+        + "\t".join(["Alpha", "2021", "False", "", "", "0"] + [""] * 10)
+        + "\n"
+        + "\t".join([
+            "Zulu", "2020", "True", "continuing", "/tv/Zulu", "2", "5", "10",
+            "1.5", "Drama,Mystery", "45 min", "Example", "TV-14", "English", "123", "tt123",
+        ])
+    )
+    with (
+        patch("media_stack.sonarr.get_sonarr_config", return_value=("http://sonarr", "test")),
+        patch("media_stack.sonarr.requests.get") as get,
+    ):
+        get.return_value.json.return_value = shows
+        assert server.get_sonarr_shows() == short_output
+        assert server.get_sonarr_shows(full_details=False) == short_output
+        assert server.get_sonarr_shows(full_details=True) == full_output
+        get.assert_called_with(
+            "http://sonarr/api/v3/series", headers={"X-Api-Key": "test"}, timeout=20
+        )
+        assert get.return_value.raise_for_status.call_count == 3
+
+
+def test_get_sonarr_shows_title_filter():
+    """Partial title filtering works in both formats, including missing titles."""
+    shows = [
+        {"title": "Dark", "year": 2017},
+        {"title": "Dark Matter", "year": 2024},
+        {"title": "The Dark Crystal", "year": 2019},
+        {"title": "Arrival", "year": 2016},
+        {"year": 2000},
+        {"title": None},
+    ]
+    with (
+        patch("media_stack.sonarr.get_sonarr_config", return_value=("http://sonarr", "test")),
+        patch("media_stack.sonarr.requests.get") as get,
+    ):
+        get.return_value.json.return_value = shows
+        for full_details in (False, True):
+            records = _parse_tsv(
+                server.get_sonarr_shows(full_details=full_details, title="  dArK  ")
+            )
+            assert [record["title"] for record in records] == [
+                "Dark", "Dark Matter", "The Dark Crystal",
+            ]
+            assert ("status" in records[0]) is full_details
+            assert server.get_sonarr_shows(
+                full_details=full_details, title="Missing"
+            ) == "Empty list"
+        assert len(server.get_sonarr_shows().split("\n")) - 1 == len(shows)
+        assert server.get_sonarr_shows(title=None) == server.get_sonarr_shows()
+        get.return_value.json.return_value = []
+        assert server.get_sonarr_shows() == "Empty list"
+        assert server.get_sonarr_shows(full_details=True) == "Empty list"
+
+
+def test_get_sonarr_shows_title_validation():
+    """Blank title filters fail explicitly without making backend requests."""
+    with patch("media_stack.sonarr.requests.get") as get:
+        for title in ("", "   "):
+            assert server.get_sonarr_shows(title=title) == "Error: title must not be empty"
+        get.assert_not_called()
+
+
+def test_get_sonarr_shows_tool_schema():
+    """MCP clients can request full details and optionally filter by title."""
+    async def check_schema():
+        async with Client(server.mcp) as client:
+            tools = await client.list_tools()
+            tool = next(tool for tool in tools if tool.name == "get_sonarr_shows")
+            parameter = tool.inputSchema["properties"]["full_details"]
+            assert parameter["type"] == "boolean"
+            assert parameter["default"] is False
+            assert "full_details" not in tool.inputSchema.get("required", [])
+            title_parameter = tool.inputSchema["properties"]["title"]
+            assert {"type": "string"} in title_parameter["anyOf"]
+            assert title_parameter["default"] is None
+            assert "title" not in tool.inputSchema.get("required", [])
+
+    asyncio.run(check_schema())
+
+
 def test_get_sonarr_shows():
     print("\nTesting Sonarr shows list")
     result_tsv = server.get_sonarr_shows()
@@ -667,9 +770,7 @@ def test_get_sonarr_shows():
     assert len(records) > 0, "Expected at least one show in Sonarr"
     print(f"Retrieved {len(records)} shows from Sonarr")
     print("Sample show:", records[0])
-    assert "title" in records[0]
-    assert "monitored" in records[0]
-    assert "episode_file_count" in records[0]
+    assert list(records[0]) == ["title", "year", "monitored", "episode_file_count"]
 
 
 def test_get_sonarr_quality_profiles():
@@ -781,6 +882,10 @@ if __name__ == "__main__":
         test_get_radarr_root_folders,
         test_get_sonarr_validation_errors,
         test_get_sonarr_shows,
+        test_get_sonarr_shows_output_formats,
+        test_get_sonarr_shows_title_filter,
+        test_get_sonarr_shows_title_validation,
+        test_get_sonarr_shows_tool_schema,
         test_get_sonarr_quality_profiles,
         test_get_sonarr_root_folders,
         test_add_sonarr_show_validation_errors,

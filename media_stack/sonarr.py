@@ -4,11 +4,19 @@ from media_stack.config import get_sonarr_config
 from media_stack.formatting import to_tsv
 
 
-def get_sonarr_shows() -> str:
+def get_sonarr_shows(full_details: bool = False, title: str | None = None) -> str:
     """Get series in Sonarr.
-    INPUT: none.
-    OUTPUT: TSV rows (series library metadata) or Error string.
+    INPUT: full_details (optional, default False) includes all series metadata.
+    title (optional) filters by case-insensitive partial title, ignoring surrounding
+    whitespace. Omit title to return all series; a supplied title must not be empty.
+    OUTPUT: TSV rows with title, year, monitored, and episode_file_count by default;
+    full_details=True returns all existing series library metadata.
+    Returns Empty list if no series match, or an Error string on failure.
     """
+    if title is not None and not title.strip():
+        return "Error: title must not be empty"
+    normalized_title = title.strip().lower() if title is not None else None
+
     sonarr_config = get_sonarr_config()
     if isinstance(sonarr_config, str):
         return sonarr_config
@@ -26,7 +34,23 @@ def get_sonarr_shows() -> str:
     series_data = response.json()
     series_rows: list[dict] = []
     for series in series_data:
+        if normalized_title is not None and normalized_title not in (
+            series.get("title") or ""
+        ).lower():
+            continue
+
         statistics = series.get("statistics", {})
+        if not full_details:
+            series_rows.append(
+                {
+                    "title": series.get("title"),
+                    "year": series.get("year"),
+                    "monitored": series.get("monitored"),
+                    "episode_file_count": statistics.get("episodeFileCount"),
+                }
+            )
+            continue
+
         series_rows.append(
             {
                 "title": series.get("title"),

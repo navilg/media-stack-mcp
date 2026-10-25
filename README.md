@@ -31,7 +31,7 @@ The server currently exposes these MCP tools:
 - `add_radarr_movie(movie_query, root_folder_path, quality_profile_id)`
 - `delete_radarr_movie(movie_query, delete_files=False)`
 - `get_radarr_current_downloads()`
-- `get_sonarr_shows()`
+- `get_sonarr_shows(full_details=False, title=None)`
 - `get_sonarr_quality_profiles()`
 - `get_sonarr_root_folders()`
 - `add_sonarr_show(show_query, root_folder_path, quality_profile_id, season_number_to_monitor)`
@@ -46,6 +46,14 @@ Optionally pass `title="Dune"` to return case-insensitive partial title matches
 (for example, `Dune` and `Dune: Part Two`), ignoring surrounding whitespace in the
 filter. Omit `title` to return the entire library. An empty or
 whitespace-only title returns an error; no matches returns `Empty list`.
+
+`get_sonarr_shows()` returns short TSV rows containing only `title`, `year`,
+`monitored`, and `episode_file_count`. Pass `full_details=True` to return all
+previous series metadata, including status, path, season and episode counts,
+disk usage, genres, runtime, network, certification, language, TVDb ID, and IMDb ID.
+Optionally pass `title="dark"` for case-insensitive partial title matching,
+ignoring surrounding whitespace in the filter. Omit `title` to return all shows.
+An empty or whitespace-only title returns an error; no matches returns `Empty list`.
 
 ## Prerequisites
 
