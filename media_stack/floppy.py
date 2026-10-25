@@ -7,10 +7,7 @@ from media_stack.formatting import to_tsv
 
 
 def get_floppy_movie_details(media_id: str, source: str = "tmdb") -> dict:
-    """Get detailed information for a specific movie from the authenticated user's Floppy account.
-    INPUT: movie_id (str), source (str, default "tmdb"),
-    OUTPUT: Dictionary containing movie details, or Error string.
-    """
+    """Get movie details from Floppy; return a dict with an `error` field on failure."""
     config = get_floppy_config()
     if isinstance(config, str):
         return {"error": config}
@@ -40,10 +37,7 @@ def get_floppy_movie_details(media_id: str, source: str = "tmdb") -> dict:
 
 
 def get_floppy_watched_movies(days: int = 30, limit: int = 200) -> str:
-    """Get movie consumption history from the authenticated user's Floppy account.
-    INPUT: days (>0, default 30), limit (1-200, default 200).
-    OUTPUT: TSV rows for completed movie history, or Error string.
-    """
+    """List completed Floppy movie history from the last `days` as TSV (limit 1-200; errors as strings)."""
     if days <= 0:
         return "Error: days must be greater than 0"
     if limit <= 0 or limit > 200:
@@ -106,10 +100,7 @@ def get_floppy_liked_movies(
         days: int = 30,
         limit: int = 50,
 ) -> str:
-    """Get liked movies from the authenticated user's Floppy library.
-    INPUT: limit (1-200, default 50), threshold_user_rating (default 7), days (default 30).
-    OUTPUT: TSV rows ordered by Floppy's liked sort, filtered by threshold_user_rating and within the last 'days' days, or Error string.
-    """
+    """List recent Floppy movies rated >= `threshold_user_rating` as TSV; errors as strings."""
     if limit <= 0 or limit > 200:
         return "Error: limit must be between 1 and 200"
 
@@ -177,10 +168,7 @@ def get_floppy_disliked_movies(
         days: int = 30,
         limit: int = 50,
 ) -> str:
-    """Get disliked movies from the authenticated user's Floppy library.
-    INPUT: limit (1-200, default 50), threshold_user_rating (default 6), days (default 30).
-    OUTPUT: TSV rows ordered by Floppy's disliked sort, filtered by threshold_user_rating (inclusive) and within the last 'days' days, or Error string.
-    """
+    """List recent Floppy movies rated < `threshold_user_rating` as TSV; errors as strings."""
     if limit <= 0 or limit > 200:
         return "Error: limit must be between 1 and 200"
 
@@ -244,10 +232,7 @@ def get_floppy_disliked_movies(
     return to_tsv(movies)
 
 def get_floppy_trending_movies() -> str:
-    """Get top 20 trending movies from Floppy.
-    INPUT: None.
-    OUTPUT: TSV rows ordered by Floppy's trending sort, or Error string.
-    """
+    """List up to 20 trending Floppy movies as TSV; errors as strings."""
     limit = 20
 
     config = get_floppy_config()
@@ -300,10 +285,7 @@ def get_floppy_trending_movies() -> str:
     return to_tsv(movies)
 
 def search_floppy_movie_by_title(title: str, limit: int = 5) -> str:
-    """Search for movies on Floppy by title.
-    INPUT: title (str), limit (int, default 5).
-    OUTPUT: TSV rows of search results, or Error string.
-    """
+    """Search Floppy movies by title; return TSV (default limit 5, errors as strings)."""
     config = get_floppy_config()
     if isinstance(config, str):
         return config
@@ -349,10 +331,7 @@ def search_floppy_movie_by_title(title: str, limit: int = 5) -> str:
     return to_tsv(movies)
 
 def get_floppy_top_picks_movie(limit: int = 10) -> str:
-    """Get top picks movies from Floppy.
-    INPUT: limit (int, default 10).
-    OUTPUT: TSV rows of top picks movies, or Error string.
-    """
+    """List Floppy movie recommendations as TSV (default limit 10; errors as strings)."""
     config = get_floppy_config()
     if isinstance(config, str):
         return config

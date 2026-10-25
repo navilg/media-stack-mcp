@@ -9,18 +9,10 @@ def get_radarr_movies(
     title: str | None = None,
     filter: dict[str, object] | None = None,
 ) -> str:
-    """Get movies in Radarr.
-    INPUT: full_details (optional, default False) includes all movie metadata.
-    title (optional) filters by case-insensitive partial title, ignoring surrounding
-    whitespace. Omit title to return all movies; a supplied title must not be empty.
-    filter (optional JSON object) accepts only monitored (bool), has_file (bool),
-    genre (non-empty string), and certification (non-empty string). All supplied
-    fields must match, together with title. Genre and certification use
-    case-insensitive exact matching, ignoring surrounding whitespace.
-    OUTPUT: TSV rows with title, year, monitored, and has_file by default;
-    full_details=True adds status, file details, genres, runtime, certification,
-    and external IDs. Returns Empty list if no movies match, or an Error string
-    on failure.
+    """List Radarr movies as TSV; `full_details` adds metadata. Filter by case-insensitive
+    partial title and/or `monitored`, `has_file`, exact `genre`, or exact `certification`
+    (case-insensitive; string filters trim whitespace). Filters combine with AND.
+    Empty matches return `Empty list`; failures return an error string.
     """
     if title is not None and not title.strip():
         return "Error: title must not be empty"
@@ -123,10 +115,7 @@ def get_radarr_movies(
 
 
 def get_radarr_quality_profiles() -> str:
-    """Get Radarr quality profiles.
-    INPUT: none.
-    OUTPUT: TSV rows (quality profiles) or Error string.
-    """
+    """List Radarr quality profiles as TSV; errors as strings."""
     radarr_config = get_radarr_config()
     if isinstance(radarr_config, str):
         return radarr_config
@@ -159,10 +148,7 @@ def get_radarr_quality_profiles() -> str:
 
 
 def get_radarr_root_folders() -> str:
-    """Get Radarr root folders.
-    INPUT: none.
-    OUTPUT: TSV rows (root folder details) or Error string.
-    """
+    """List Radarr root folders as TSV; errors as strings."""
     radarr_config = get_radarr_config()
     if isinstance(radarr_config, str):
         return radarr_config
@@ -195,10 +181,7 @@ def get_radarr_root_folders() -> str:
 
 
 def add_radarr_movie(movie_query: str, root_folder_path: str, quality_profile_id: int) -> str:
-    """Add a movie to Radarr.
-    INPUT: movie_query, root_folder_path, quality_profile_id.
-    OUTPUT: confirmation text or Error string.
-    """
+    """Find and add a movie to Radarr with the selected root folder/profile; errors as strings."""
     if not movie_query or not movie_query.strip():
         return "Error: movie_query must not be empty"
     if not root_folder_path or not root_folder_path.strip():
@@ -265,10 +248,7 @@ def add_radarr_movie(movie_query: str, root_folder_path: str, quality_profile_id
 
 
 def delete_radarr_movie(movie_query: str, delete_files: bool = True) -> str:
-    """Delete a movie from Radarr.
-    INPUT: movie_query, delete_files (default true).
-    OUTPUT: confirmation text or Error string.
-    """
+    """Remove a movie from Radarr; `delete_files` (default true) also removes media files. Errors as strings."""
     if not movie_query or not movie_query.strip():
         return "Error: movie_query must not be empty"
 
@@ -329,10 +309,7 @@ def delete_radarr_movie(movie_query: str, delete_files: bool = True) -> str:
 
 
 def get_radarr_current_downloads() -> str:
-    """Get current Radarr downloads.
-    INPUT: none.
-    OUTPUT: TSV rows (download status/progress) or Error string.
-    """
+    """List current Radarr downloads and progress as TSV; errors as strings."""
     radarr_config = get_radarr_config()
     if isinstance(radarr_config, str):
         return radarr_config

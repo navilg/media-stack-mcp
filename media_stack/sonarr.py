@@ -5,13 +5,9 @@ from media_stack.formatting import to_tsv
 
 
 def get_sonarr_shows(full_details: bool = False, title: str | None = None) -> str:
-    """Get series in Sonarr.
-    INPUT: full_details (optional, default False) includes all series metadata.
-    title (optional) filters by case-insensitive partial title, ignoring surrounding
-    whitespace. Omit title to return all series; a supplied title must not be empty.
-    OUTPUT: TSV rows with title, year, monitored, and episode_file_count by default;
-    full_details=True returns all existing series library metadata.
-    Returns Empty list if no series match, or an Error string on failure.
+    """List Sonarr series as TSV; `full_details` adds metadata. Optional `title`
+    matches case-insensitive partial titles (trimmed; blank is invalid). Empty
+    matches return `Empty list`; failures return an error string.
     """
     if title is not None and not title.strip():
         return "Error: title must not be empty"
@@ -79,10 +75,7 @@ def get_sonarr_shows(full_details: bool = False, title: str | None = None) -> st
 
 
 def get_sonarr_quality_profiles() -> str:
-    """Get Sonarr quality profiles.
-    INPUT: none.
-    OUTPUT: TSV rows (quality profiles) or Error string.
-    """
+    """List Sonarr quality profiles as TSV; errors as strings."""
     sonarr_config = get_sonarr_config()
     if isinstance(sonarr_config, str):
         return sonarr_config
@@ -115,10 +108,7 @@ def get_sonarr_quality_profiles() -> str:
 
 
 def get_sonarr_root_folders() -> str:
-    """Get Sonarr root folders.
-    INPUT: none.
-    OUTPUT: TSV rows (root folder details) or Error string.
-    """
+    """List Sonarr root folders as TSV; errors as strings."""
     sonarr_config = get_sonarr_config()
     if isinstance(sonarr_config, str):
         return sonarr_config
@@ -156,10 +146,7 @@ def add_sonarr_show(
     quality_profile_id: int,
     season_number_to_monitor: int,
 ) -> str:
-    """Add a show to Sonarr and monitor only one season.
-    INPUT: show_query, root_folder_path, quality_profile_id, season_number_to_monitor.
-    OUTPUT: confirmation text or Error string.
-    """
+    """Add a Sonarr series and monitor only `season_number_to_monitor`; errors as strings."""
     if not show_query or not show_query.strip():
         return "Error: show_query must not be empty"
     if not root_folder_path or not root_folder_path.strip():
@@ -246,10 +233,7 @@ def add_sonarr_show(
 
 
 def delete_sonarr_show(show_query: str, delete_files: bool = True) -> str:
-    """Delete a show from Sonarr.
-    INPUT: show_query, delete_files (default true).
-    OUTPUT: confirmation text or Error string.
-    """
+    """Remove a series from Sonarr; `delete_files` (default true) also removes media files. Errors as strings."""
     if not show_query or not show_query.strip():
         return "Error: show_query must not be empty"
 
@@ -310,10 +294,7 @@ def delete_sonarr_show(show_query: str, delete_files: bool = True) -> str:
 
 
 def get_sonarr_current_downloads() -> str:
-    """Get current Sonarr downloads.
-    INPUT: none.
-    OUTPUT: TSV rows (download status/progress) or Error string.
-    """
+    """List current Sonarr downloads and progress as TSV; errors as strings."""
     sonarr_config = get_sonarr_config()
     if isinstance(sonarr_config, str):
         return sonarr_config
