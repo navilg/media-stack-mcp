@@ -93,6 +93,39 @@ docker run --rm -p 8000:8000 \
   mcp-media-stack:latest
 ```
 
+## Publishing Docker images
+
+The GitHub Actions workflow publishes two Docker Hub images whenever a Git tag
+is pushed:
+
+- `<image>:aarch64-<tag>` for `linux/arm64`
+- `<image>:amd64-<tag>` for `linux/amd64`
+
+Configure these repository secrets under **Settings > Secrets and variables >
+Actions**:
+
+- `DOCKERHUB_USERNAME`: Docker Hub login username.
+- `DOCKERHUB_TOKEN`: Docker Hub access token with write permission for the image
+  repository.
+
+By default, `<image>` is `<DOCKERHUB_USERNAME>/media-stack-mcp`. To publish to a
+different repository or organization, set the repository variable
+`DOCKERHUB_IMAGE` to the full Docker Hub image name (for example,
+`my-org/media-stack-mcp`, without a tag). The Docker Hub account must have write
+access to that repository.
+
+For example, pushing the Git tag `v1.0.0` publishes
+`<image>:aarch64-v1.0.0` and `<image>:amd64-v1.0.0`:
+
+```bash
+git tag v1.0.0
+git push origin v1.0.0
+```
+
+Git tags must produce valid Docker image tags when prefixed with `aarch64-` or
+`amd64-` (use letters, digits, dots, underscores, and hyphens, with at most 120
+characters in the Git tag).
+
 ## Quick start (.env file)
 
 Create `.env`:
