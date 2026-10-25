@@ -25,7 +25,7 @@ The server currently exposes these MCP tools:
 - `get_floppy_disliked_movies(threshold_user_rating=6, days=30, limit=50)`
 - `get_floppy_trending_movies()`
 - `search_floppy_movie_by_title(title, limit=5)`
-- `get_radarr_movies()`
+- `get_radarr_movies(full_details=False)`
 - `get_radarr_quality_profiles()`
 - `get_radarr_root_folders()`
 - `add_radarr_movie(movie_query, root_folder_path, quality_profile_id)`
@@ -37,6 +37,11 @@ The server currently exposes these MCP tools:
 - `add_sonarr_show(show_query, root_folder_path, quality_profile_id, season_number_to_monitor)`
 - `delete_sonarr_show(show_query, delete_files=False)`
 - `get_sonarr_current_downloads()`
+
+`get_radarr_movies()` returns short TSV rows containing only `title`, `year`,
+`monitored`, and `has_file`. Pass `full_details=True` to include all existing
+metadata: status, file path, file size, quality, genres, runtime, certification,
+TMDb ID, and IMDb ID.
 
 ## Prerequisites
 

@@ -6,6 +6,7 @@ import time
 import traceback
 import subprocess
 import sys
+from unittest.mock import patch
 from dotenv import load_dotenv
 import os
 
@@ -483,6 +484,82 @@ def test_search_trakt_show_by_title():
     print(f"Retrieved {len(records)} shows matching 'Dark' from Trakt")
     print("Sample show:", records[0])
     
+def test_get_radarr_movies_output_formats():
+    """Short output is the default; full output preserves all metadata."""
+    movies = [
+        {
+            "title": "Zulu",
+            "year": 2020,
+            "monitored": True,
+            "status": "released",
+            "hasFile": True,
+            "movieFile": {
+                "path": "/movies/Zulu.mkv",
+                "size": 1572864,
+                "quality": {"quality": {"name": "Bluray-1080p"}},
+            },
+            "genres": ["Drama", "Action"],
+            "runtime": 120,
+            "certification": "PG-13",
+            "tmdbId": 123,
+            "imdbId": "tt123",
+        },
+        {"title": "Alpha", "year": 2021, "monitored": False, "hasFile": False},
+    ]
+    short_output = (
+        "title\tyear\tmonitored\thas_file\n"
+        "Alpha\t2021\tFalse\tFalse\n"
+        "Zulu\t2020\tTrue\tTrue"
+    )
+    full_output = (
+        "title\tyear\tmonitored\tstatus\thas_file\tfile_path\tfile_size_mb\t"
+        "quality\tgenres\truntime\tcertification\ttmdb_id\timdb_id\n"
+        + "\t".join(["Alpha", "2021", "False", "", "False"] + [""] * 8)
+        + "\n"
+        + "\t".join([
+            "Zulu", "2020", "True", "released", "True", "/movies/Zulu.mkv",
+            "1.5", "Bluray-1080p", "Drama,Action", "120 min", "PG-13", "123", "tt123",
+        ])
+    )
+    with (
+        patch("media_stack.radarr.get_radarr_config", return_value=("http://radarr", "test")),
+        patch("media_stack.radarr.requests.get") as get,
+    ):
+        get.return_value.json.return_value = movies
+        assert server.get_radarr_movies() == short_output
+        assert server.get_radarr_movies(full_details=False) == short_output
+        assert server.get_radarr_movies(full_details=True) == full_output
+        get.assert_called_with(
+            "http://radarr/api/v3/movie", headers={"X-Api-Key": "test"}, timeout=20
+        )
+        assert get.return_value.raise_for_status.call_count == 3
+
+
+def test_get_radarr_movies_empty_formats():
+    """An empty library retains the existing response in both formats."""
+    with (
+        patch("media_stack.radarr.get_radarr_config", return_value=("http://radarr", "test")),
+        patch("media_stack.radarr.requests.get") as get,
+    ):
+        get.return_value.json.return_value = []
+        assert server.get_radarr_movies() == "Empty list"
+        assert server.get_radarr_movies(full_details=True) == "Empty list"
+
+
+def test_get_radarr_movies_tool_schema():
+    """MCP clients can opt into full details; omission uses short output."""
+    async def check_schema():
+        async with Client(server.mcp) as client:
+            tools = await client.list_tools()
+            tool = next(tool for tool in tools if tool.name == "get_radarr_movies")
+            parameter = tool.inputSchema["properties"]["full_details"]
+            assert parameter["type"] == "boolean"
+            assert parameter["default"] is False
+            assert "full_details" not in tool.inputSchema.get("required", [])
+
+    asyncio.run(check_schema())
+
+
 def test_get_radarr_movies():
     print("\nTesting Radarr movies list")
     result_tsv = server.get_radarr_movies()
@@ -491,9 +568,7 @@ def test_get_radarr_movies():
     assert len(records) > 0, "Expected at least one movie in Radarr"
     print(f"Retrieved {len(records)} movies from Radarr")
     print("Sample movie:", records[0])
-    assert "title" in records[0]
-    assert "monitored" in records[0]
-    assert "has_file" in records[0]
+    assert list(records[0]) == ["title", "year", "monitored", "has_file"]
 
 
 def test_get_radarr_quality_profiles():
@@ -654,6 +729,9 @@ if __name__ == "__main__":
         test_search_trakt_movie_by_title,
         test_search_trakt_show_by_title,
         test_get_radarr_movies,
+        test_get_radarr_movies_output_formats,
+        test_get_radarr_movies_empty_formats,
+        test_get_radarr_movies_tool_schema,
         test_get_radarr_quality_profiles,
         test_get_radarr_root_folders,
         test_get_sonarr_validation_errors,

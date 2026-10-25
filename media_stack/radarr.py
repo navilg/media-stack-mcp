@@ -4,10 +4,12 @@ from media_stack.config import get_radarr_config
 from media_stack.formatting import to_tsv
 
 
-def get_radarr_movies() -> str:
+def get_radarr_movies(full_details: bool = False) -> str:
     """Get movies in Radarr.
-    INPUT: none.
-    OUTPUT: TSV rows (movie library metadata) or Error string.
+    INPUT: full_details (optional, default False) includes all movie metadata.
+    OUTPUT: TSV rows with title, year, monitored, and has_file by default;
+    full_details=True adds status, file details, genres, runtime, certification,
+    and external IDs. Returns an Error string on failure.
     """
     radarr_config = get_radarr_config()
     if isinstance(radarr_config, str):
@@ -26,6 +28,17 @@ def get_radarr_movies() -> str:
     movies_data = response.json()
     movies: list[dict] = []
     for movie in movies_data:
+        if not full_details:
+            movies.append(
+                {
+                    "title": movie.get("title"),
+                    "year": movie.get("year"),
+                    "monitored": movie.get("monitored"),
+                    "has_file": movie.get("hasFile"),
+                }
+            )
+            continue
+
         movie_file = movie.get("movieFile", {})
         movies.append(
             {
