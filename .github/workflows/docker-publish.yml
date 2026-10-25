@@ -42,4 +42,4 @@ jobs:
           context: .
           platforms: ${{ matrix.platform }}
           push: true
-          tags: ${{ vars.DOCKERHUB_IMAGE || format('{0}/media-stack-mcp', secrets.DOCKERHUB_USERNAME) }}:${{ matrix.arch }}-${{ github.ref_name }}
+          tags: ${{ vars.DOCKERHUB_IMAGE || format('{0}/mcp-media-stack', secrets.DOCKERHUB_USERNAME) }}:${{ matrix.arch }}-${{ github.ref_name }}
