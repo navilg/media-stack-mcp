@@ -25,7 +25,7 @@ The server currently exposes these MCP tools:
 - `get_floppy_disliked_movies(threshold_user_rating=6, days=30, limit=50)`
 - `get_floppy_trending_movies()`
 - `search_floppy_movie_by_title(title, limit=5)`
-- `get_radarr_movies(full_details=False)`
+- `get_radarr_movies(full_details=False, title=None)`
 - `get_radarr_quality_profiles()`
 - `get_radarr_root_folders()`
 - `add_radarr_movie(movie_query, root_folder_path, quality_profile_id)`
@@ -42,6 +42,10 @@ The server currently exposes these MCP tools:
 `monitored`, and `has_file`. Pass `full_details=True` to include all existing
 metadata: status, file path, file size, quality, genres, runtime, certification,
 TMDb ID, and IMDb ID.
+Optionally pass `title="Dune"` to return case-insensitive partial title matches
+(for example, `Dune` and `Dune: Part Two`), ignoring surrounding whitespace in the
+filter. Omit `title` to return the entire library. An empty or
+whitespace-only title returns an error; no matches returns `Empty list`.
 
 ## Prerequisites
 

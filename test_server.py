@@ -547,7 +547,7 @@ def test_get_radarr_movies_empty_formats():
 
 
 def test_get_radarr_movies_tool_schema():
-    """MCP clients can opt into full details; omission uses short output."""
+    """MCP clients can optionally request full details and title filtering."""
     async def check_schema():
         async with Client(server.mcp) as client:
             tools = await client.list_tools()
@@ -556,8 +556,51 @@ def test_get_radarr_movies_tool_schema():
             assert parameter["type"] == "boolean"
             assert parameter["default"] is False
             assert "full_details" not in tool.inputSchema.get("required", [])
+            title_parameter = tool.inputSchema["properties"]["title"]
+            assert {"type": "string"} in title_parameter["anyOf"]
+            assert title_parameter["default"] is None
+            assert "title" not in tool.inputSchema.get("required", [])
 
     asyncio.run(check_schema())
+
+
+def test_get_radarr_movies_title_filter():
+    """Partial title matching works in both formats and preserves all versions."""
+    movies = [
+        {"title": "Dune", "year": 2021},
+        {"title": "Dune: Part Two", "year": 2024},
+        {"title": " DUNE ", "year": 1984},
+        {"title": "The Dune Story", "year": 2025},
+        {"title": "Arrival", "year": 2016},
+        {"year": 2000},
+        {"title": None},
+    ]
+    with (
+        patch("media_stack.radarr.get_radarr_config", return_value=("http://radarr", "test")),
+        patch("media_stack.radarr.requests.get") as get,
+    ):
+        get.return_value.json.return_value = movies
+        for full_details in (False, True):
+            records = _parse_tsv(
+                server.get_radarr_movies(full_details=full_details, title="  dUnE  ")
+            )
+            assert len(records) == 4
+            assert {record["year"] for record in records} == {"1984", "2021", "2024", "2025"}
+            assert all("dune" in record["title"].lower() for record in records)
+            assert ("status" in records[0]) is full_details
+            assert server.get_radarr_movies(
+                full_details=full_details, title="Missing"
+            ) == "Empty list"
+        assert len(server.get_radarr_movies().split("\n")) - 1 == len(movies)
+        assert server.get_radarr_movies(title=None) == server.get_radarr_movies()
+
+
+def test_get_radarr_movies_title_validation():
+    """Blank title filters fail explicitly without making backend requests."""
+    with patch("media_stack.radarr.requests.get") as get:
+        for title in ("", "   "):
+            assert server.get_radarr_movies(title=title) == "Error: title must not be empty"
+        get.assert_not_called()
 
 
 def test_get_radarr_movies():
@@ -732,6 +775,8 @@ if __name__ == "__main__":
         test_get_radarr_movies_output_formats,
         test_get_radarr_movies_empty_formats,
         test_get_radarr_movies_tool_schema,
+        test_get_radarr_movies_title_filter,
+        test_get_radarr_movies_title_validation,
         test_get_radarr_quality_profiles,
         test_get_radarr_root_folders,
         test_get_sonarr_validation_errors,

@@ -4,13 +4,20 @@ from media_stack.config import get_radarr_config
 from media_stack.formatting import to_tsv
 
 
-def get_radarr_movies(full_details: bool = False) -> str:
+def get_radarr_movies(full_details: bool = False, title: str | None = None) -> str:
     """Get movies in Radarr.
     INPUT: full_details (optional, default False) includes all movie metadata.
+    title (optional) filters by case-insensitive partial title, ignoring surrounding
+    whitespace. Omit title to return all movies; a supplied title must not be empty.
     OUTPUT: TSV rows with title, year, monitored, and has_file by default;
     full_details=True adds status, file details, genres, runtime, certification,
-    and external IDs. Returns an Error string on failure.
+    and external IDs. Returns Empty list if no movies match, or an Error string
+    on failure.
     """
+    if title is not None and not title.strip():
+        return "Error: title must not be empty"
+    normalized_title = title.strip().lower() if title is not None else None
+
     radarr_config = get_radarr_config()
     if isinstance(radarr_config, str):
         return radarr_config
@@ -28,6 +35,11 @@ def get_radarr_movies(full_details: bool = False) -> str:
     movies_data = response.json()
     movies: list[dict] = []
     for movie in movies_data:
+        if normalized_title is not None and normalized_title not in (
+            movie.get("title") or ""
+        ).lower():
+            continue
+
         if not full_details:
             movies.append(
                 {
