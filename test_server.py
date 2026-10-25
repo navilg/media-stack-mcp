@@ -857,7 +857,7 @@ def test_get_sonarr_shows_title_validation():
 
 
 def test_get_sonarr_shows_tool_schema():
-    """MCP clients can request full details and optionally filter by title."""
+    """MCP clients can request full details, title, and an optional object filter."""
     async def check_schema():
         async with Client(server.mcp) as client:
             tools = await client.list_tools()
@@ -870,8 +870,128 @@ def test_get_sonarr_shows_tool_schema():
             assert {"type": "string"} in title_parameter["anyOf"]
             assert title_parameter["default"] is None
             assert "title" not in tool.inputSchema.get("required", [])
+            filter_parameter = tool.inputSchema["properties"]["filter"]
+            assert any(item.get("type") == "object" for item in filter_parameter["anyOf"])
+            assert {"type": "null"} in filter_parameter["anyOf"]
+            assert filter_parameter["default"] is None
+            assert "filter" not in tool.inputSchema.get("required", [])
 
     asyncio.run(check_schema())
+
+
+def test_get_sonarr_shows_filter():
+    """Each field filters raw series metadata without changing either output format."""
+    shows = [
+        {"title": "Zulu", "monitored": True, "statistics": {"episodeFileCount": 5},
+         "genres": ["Mystery", "Drama"], "certification": "TV-MA"},
+        {"title": "Alpha", "monitored": False, "statistics": {"episodeFileCount": 0},
+         "genres": ["Drama"], "certification": "TV-14"},
+        {"title": "Beta", "monitored": True, "statistics": {"episodeFileCount": 0},
+         "genres": ["Comedy"], "certification": "TV-MA"},
+        {"title": "Gamma", "monitored": False, "statistics": {"episodeFileCount": 1},
+         "genres": ["Dramatic Comedy"], "certification": "TV-G"},
+        {"title": "Missing"},
+        {"title": "Null", "statistics": {"episodeFileCount": None},
+         "genres": None, "certification": None},
+    ]
+    cases = [
+        (None, ["Alpha", "Beta", "Gamma", "Missing", "Null", "Zulu"]),
+        ({}, ["Alpha", "Beta", "Gamma", "Missing", "Null", "Zulu"]),
+        ({"monitored": True}, ["Beta", "Zulu"]),
+        ({"monitored": False}, ["Alpha", "Gamma"]),
+        ({"has_file": True}, ["Gamma", "Zulu"]),
+        ({"has_file": False}, ["Alpha", "Beta", "Missing", "Null"]),
+        ({"genre": "  dRaMa  "}, ["Alpha", "Zulu"]),
+        ({"genre": "dram"}, []),
+        ({"certification": " tv-ma "}, ["Beta", "Zulu"]),
+        ({"certification": "TV"}, []),
+        ({"monitored": False, "has_file": False}, ["Alpha"]),
+        ({"monitored": True, "has_file": True, "genre": "drama",
+          "certification": "TV-MA"}, ["Zulu"]),
+        ({"genre": "drama", "certification": "TV-G"}, []),
+    ]
+    with (
+        patch("media_stack.sonarr.get_sonarr_config", return_value=("http://sonarr", "test")),
+        patch("media_stack.sonarr.requests.get") as get,
+    ):
+        get.return_value.json.return_value = shows
+        for full_details in (False, True):
+            for show_filter, expected in cases:
+                records = _parse_tsv(server.get_sonarr_shows(
+                    full_details=full_details, filter=show_filter,
+                ))
+                assert [record["title"] for record in records] == expected
+                if records:
+                    assert ("status" in records[0]) is full_details
+                    assert "has_file" not in records[0]
+                    assert "episode_file_count" in records[0]
+            assert server.get_sonarr_shows(
+                full_details=full_details, title="alpha", filter={"monitored": True}
+            ) == "Empty list"
+            records = _parse_tsv(server.get_sonarr_shows(
+                full_details=full_details, title=" zUL ", filter={"genre": "drama"}
+            ))
+            assert [record["title"] for record in records] == ["Zulu"]
+            get.return_value.json.return_value = []
+            assert server.get_sonarr_shows(
+                full_details=full_details, filter={"has_file": False}
+            ) == "Empty list"
+            get.return_value.json.return_value = shows
+
+
+def test_get_sonarr_shows_filter_validation():
+    """Invalid filter objects fail before accessing configuration or Sonarr."""
+    cases = [
+        ([], "Error: filter must be a JSON object"),
+        ('{"monitored": true}', "Error: filter must be a JSON object"),
+        ({"year": 2020}, "Error: unsupported filter key: year"),
+        ({"episode_file_count": 1}, "Error: unsupported filter key: episode_file_count"),
+        ({"monitored": True, "unknown": True}, "Error: unsupported filter key: unknown"),
+    ]
+    for key in ("monitored", "has_file"):
+        for value in ("true", "false", 0, 1, None, [], {}):
+            cases.append(({key: value}, f"Error: filter.{key} must be a boolean"))
+    for key in ("genre", "certification"):
+        for value in ("", "   ", True, 1, None, [], {}):
+            cases.append(({key: value}, f"Error: filter.{key} must be a non-empty string"))
+    with (
+        patch("media_stack.sonarr.get_sonarr_config") as config,
+        patch("media_stack.sonarr.requests.get") as get,
+    ):
+        for show_filter, expected in cases:
+            assert server.get_sonarr_shows(filter=show_filter) == expected
+        config.assert_not_called()
+        get.assert_not_called()
+
+
+def test_get_sonarr_shows_filter_mcp():
+    """The registered tool accepts JSON object filters and rejects invalid fields."""
+    async def check_filter():
+        async with Client(server.mcp) as client:
+            result = await client.call_tool("get_sonarr_shows", {
+                "filter": {"monitored": True, "has_file": True,
+                           "genre": "drama", "certification": "TV-MA"},
+            })
+            assert result.data == "title\tyear\tmonitored\tepisode_file_count\nZulu\t\tTrue\t5"
+            for show_filter, expected in [
+                ({"unknown": True}, "Error: unsupported filter key: unknown"),
+                ({"monitored": "true"}, "Error: filter.monitored must be a boolean"),
+                ({"has_file": 1}, "Error: filter.has_file must be a boolean"),
+            ]:
+                result = await client.call_tool("get_sonarr_shows", {"filter": show_filter})
+                assert result.data == expected
+
+    with (
+        patch("media_stack.sonarr.get_sonarr_config", return_value=("http://sonarr", "test")),
+        patch("media_stack.sonarr.requests.get") as get,
+    ):
+        get.return_value.json.return_value = [
+            {"title": "Zulu", "monitored": True, "statistics": {"episodeFileCount": 5},
+             "genres": ["Drama"], "certification": "TV-MA"},
+            {"title": "Alpha", "monitored": False},
+        ]
+        asyncio.run(check_filter())
+        assert get.call_count == 1
 
 
 def test_get_sonarr_shows():
@@ -1001,6 +1121,9 @@ if __name__ == "__main__":
         test_get_sonarr_shows_title_filter,
         test_get_sonarr_shows_title_validation,
         test_get_sonarr_shows_tool_schema,
+        test_get_sonarr_shows_filter,
+        test_get_sonarr_shows_filter_validation,
+        test_get_sonarr_shows_filter_mcp,
         test_get_sonarr_quality_profiles,
         test_get_sonarr_root_folders,
         test_add_sonarr_show_validation_errors,

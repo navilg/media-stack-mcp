@@ -31,7 +31,7 @@ The server currently exposes these MCP tools:
 - `add_radarr_movie(movie_query, root_folder_path, quality_profile_id)`
 - `delete_radarr_movie(movie_query, delete_files=False)`
 - `get_radarr_current_downloads()`
-- `get_sonarr_shows(full_details=False, title=None)`
+- `get_sonarr_shows(full_details=False, title=None, filter=None)`
 - `get_sonarr_quality_profiles()`
 - `get_sonarr_root_folders()`
 - `add_sonarr_show(show_query, root_folder_path, quality_profile_id, season_number_to_monitor)`
@@ -69,6 +69,20 @@ disk usage, genres, runtime, network, certification, language, TVDb ID, and IMDb
 Optionally pass `title="dark"` for case-insensitive partial title matching,
 ignoring surrounding whitespace in the filter. Omit `title` to return all shows.
 An empty or whitespace-only title returns an error; no matches returns `Empty list`.
+
+Sonarr also accepts the same optional JSON/dict `filter` with only `monitored`,
+`has_file`, `genre`, and `certification`, for example:
+
+```json
+{"monitored": true, "has_file": true, "genre": "drama", "certification": "TV-MA"}
+```
+
+Each key is optional. Boolean and string validation, AND matching with `title`,
+case-insensitive exact genre/certification matching, and empty-filter behavior
+are the same as Radarr. For shows, `has_file=true` means at least one downloaded
+episode (`episodeFileCount > 0`); `false` matches shows with no downloaded
+episodes, including missing or null counts. The existing output columns remain
+unchanged in both short and full formats.
 
 ## Prerequisites
 

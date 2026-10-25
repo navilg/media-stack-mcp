@@ -1,17 +1,30 @@
 import requests
 
 from media_stack.config import get_sonarr_config
+from media_stack.filters import normalize_library_filter
 from media_stack.formatting import to_tsv
 
 
-def get_sonarr_shows(full_details: bool = False, title: str | None = None) -> str:
+def get_sonarr_shows(
+    full_details: bool = False,
+    title: str | None = None,
+    filter: dict[str, object] | None = None,
+) -> str:
     """List Sonarr series as TSV; `full_details` adds metadata. Optional `title`
     matches case-insensitive partial titles (trimmed; blank is invalid). Empty
-    matches return `Empty list`; failures return an error string.
+    matches return `Empty list`; failures return an error string. Optional `filter`
+    is a JSON object allowing only `monitored` and `has_file` (booleans), `genre`
+    and `certification` (non-empty strings, trimmed, case-insensitive exact matches).
+    All filters combine with AND, including title. `has_file` means at least one
+    downloaded episode (episodeFileCount > 0); missing counts mean no files.
     """
     if title is not None and not title.strip():
         return "Error: title must not be empty"
     normalized_title = title.strip().lower() if title is not None else None
+
+    normalized_filter = normalize_library_filter(filter)
+    if isinstance(normalized_filter, str):
+        return normalized_filter
 
     sonarr_config = get_sonarr_config()
     if isinstance(sonarr_config, str):
@@ -36,6 +49,25 @@ def get_sonarr_shows(full_details: bool = False, title: str | None = None) -> st
             continue
 
         statistics = series.get("statistics", {})
+        if (
+            "monitored" in normalized_filter
+            and series.get("monitored") is not normalized_filter["monitored"]
+        ):
+            continue
+        if "has_file" in normalized_filter:
+            has_file = (statistics.get("episodeFileCount") or 0) > 0
+            if has_file is not normalized_filter["has_file"]:
+                continue
+        if "genre" in normalized_filter and not any(
+            genre.strip().lower() == normalized_filter["genre"]
+            for genre in (series.get("genres") or [])
+        ):
+            continue
+        if "certification" in normalized_filter and (
+            series.get("certification") or ""
+        ).strip().lower() != normalized_filter["certification"]:
+            continue
+
         if not full_details:
             series_rows.append(
                 {

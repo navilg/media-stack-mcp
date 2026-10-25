@@ -1,6 +1,7 @@
 import requests
 
 from media_stack.config import get_radarr_config
+from media_stack.filters import normalize_library_filter
 from media_stack.formatting import to_tsv
 
 
@@ -18,21 +19,9 @@ def get_radarr_movies(
         return "Error: title must not be empty"
     normalized_title = title.strip().lower() if title is not None else None
 
-    normalized_filter: dict[str, bool | str] = {}
-    if filter is not None:
-        if not isinstance(filter, dict):
-            return "Error: filter must be a JSON object"
-        for key, value in filter.items():
-            if key not in ("monitored", "has_file", "genre", "certification"):
-                return f"Error: unsupported filter key: {key}"
-            if key in ("monitored", "has_file"):
-                if not isinstance(value, bool):
-                    return f"Error: filter.{key} must be a boolean"
-                normalized_filter[key] = value
-            else:
-                if not isinstance(value, str) or not value.strip():
-                    return f"Error: filter.{key} must be a non-empty string"
-                normalized_filter[key] = value.strip().lower()
+    normalized_filter = normalize_library_filter(filter)
+    if isinstance(normalized_filter, str):
+        return normalized_filter
 
     radarr_config = get_radarr_config()
     if isinstance(radarr_config, str):
