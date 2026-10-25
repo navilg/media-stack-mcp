@@ -25,7 +25,7 @@ The server currently exposes these MCP tools:
 - `get_floppy_disliked_movies(threshold_user_rating=6, days=30, limit=50)`
 - `get_floppy_trending_movies()`
 - `search_floppy_movie_by_title(title, limit=5)`
-- `get_radarr_movies(full_details=False, title=None)`
+- `get_radarr_movies(full_details=False, title=None, filter=None)`
 - `get_radarr_quality_profiles()`
 - `get_radarr_root_folders()`
 - `add_radarr_movie(movie_query, root_folder_path, quality_profile_id)`
@@ -46,6 +46,21 @@ Optionally pass `title="Dune"` to return case-insensitive partial title matches
 (for example, `Dune` and `Dune: Part Two`), ignoring surrounding whitespace in the
 filter. Omit `title` to return the entire library. An empty or
 whitespace-only title returns an error; no matches returns `Empty list`.
+
+Optionally pass a JSON/dict object as `filter`, for example:
+
+```json
+{"monitored": true, "has_file": true, "genre": "romance", "certification": "R"}
+```
+
+Only these four keys are allowed, and each is optional. `monitored` and `has_file`
+must be booleans; `genre` and `certification` must be non-empty strings.
+All supplied fields must match (AND), together with any `title` filter.
+Genre matches one complete genre in the movie's genres; certification matches
+the complete rating. Both ignore case and surrounding whitespace.
+Omitting `filter`, passing `null`/`None`, or passing `{}` leaves the library
+unfiltered apart from any `title` filter. Invalid keys or values return an error.
+Filtering works with both short and full output; no matches returns `Empty list`.
 
 `get_sonarr_shows()` returns short TSV rows containing only `title`, `year`,
 `monitored`, and `episode_file_count`. Pass `full_details=True` to return all

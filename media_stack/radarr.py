@@ -4,11 +4,19 @@ from media_stack.config import get_radarr_config
 from media_stack.formatting import to_tsv
 
 
-def get_radarr_movies(full_details: bool = False, title: str | None = None) -> str:
+def get_radarr_movies(
+    full_details: bool = False,
+    title: str | None = None,
+    filter: dict[str, object] | None = None,
+) -> str:
     """Get movies in Radarr.
     INPUT: full_details (optional, default False) includes all movie metadata.
     title (optional) filters by case-insensitive partial title, ignoring surrounding
     whitespace. Omit title to return all movies; a supplied title must not be empty.
+    filter (optional JSON object) accepts only monitored (bool), has_file (bool),
+    genre (non-empty string), and certification (non-empty string). All supplied
+    fields must match, together with title. Genre and certification use
+    case-insensitive exact matching, ignoring surrounding whitespace.
     OUTPUT: TSV rows with title, year, monitored, and has_file by default;
     full_details=True adds status, file details, genres, runtime, certification,
     and external IDs. Returns Empty list if no movies match, or an Error string
@@ -17,6 +25,22 @@ def get_radarr_movies(full_details: bool = False, title: str | None = None) -> s
     if title is not None and not title.strip():
         return "Error: title must not be empty"
     normalized_title = title.strip().lower() if title is not None else None
+
+    normalized_filter: dict[str, bool | str] = {}
+    if filter is not None:
+        if not isinstance(filter, dict):
+            return "Error: filter must be a JSON object"
+        for key, value in filter.items():
+            if key not in ("monitored", "has_file", "genre", "certification"):
+                return f"Error: unsupported filter key: {key}"
+            if key in ("monitored", "has_file"):
+                if not isinstance(value, bool):
+                    return f"Error: filter.{key} must be a boolean"
+                normalized_filter[key] = value
+            else:
+                if not isinstance(value, str) or not value.strip():
+                    return f"Error: filter.{key} must be a non-empty string"
+                normalized_filter[key] = value.strip().lower()
 
     radarr_config = get_radarr_config()
     if isinstance(radarr_config, str):
@@ -38,6 +62,26 @@ def get_radarr_movies(full_details: bool = False, title: str | None = None) -> s
         if normalized_title is not None and normalized_title not in (
             movie.get("title") or ""
         ).lower():
+            continue
+
+        if (
+            "monitored" in normalized_filter
+            and movie.get("monitored") is not normalized_filter["monitored"]
+        ):
+            continue
+        if (
+            "has_file" in normalized_filter
+            and movie.get("hasFile") is not normalized_filter["has_file"]
+        ):
+            continue
+        if "genre" in normalized_filter and not any(
+            genre.strip().lower() == normalized_filter["genre"]
+            for genre in (movie.get("genres") or [])
+        ):
+            continue
+        if "certification" in normalized_filter and (
+            movie.get("certification") or ""
+        ).strip().lower() != normalized_filter["certification"]:
             continue
 
         if not full_details:

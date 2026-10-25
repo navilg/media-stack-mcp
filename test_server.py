@@ -547,7 +547,7 @@ def test_get_radarr_movies_empty_formats():
 
 
 def test_get_radarr_movies_tool_schema():
-    """MCP clients can optionally request full details and title filtering."""
+    """MCP clients can optionally request full details, title, and object filters."""
     async def check_schema():
         async with Client(server.mcp) as client:
             tools = await client.list_tools()
@@ -560,6 +560,11 @@ def test_get_radarr_movies_tool_schema():
             assert {"type": "string"} in title_parameter["anyOf"]
             assert title_parameter["default"] is None
             assert "title" not in tool.inputSchema.get("required", [])
+            filter_parameter = tool.inputSchema["properties"]["filter"]
+            assert any(item.get("type") == "object" for item in filter_parameter["anyOf"])
+            assert {"type": "null"} in filter_parameter["anyOf"]
+            assert filter_parameter["default"] is None
+            assert "filter" not in tool.inputSchema.get("required", [])
 
     asyncio.run(check_schema())
 
@@ -601,6 +606,113 @@ def test_get_radarr_movies_title_validation():
         for title in ("", "   "):
             assert server.get_radarr_movies(title=title) == "Error: title must not be empty"
         get.assert_not_called()
+
+
+def test_get_radarr_movies_filter():
+    """Each optional field filters raw metadata in both output formats."""
+    movies = [
+        {"title": "Zulu", "monitored": True, "hasFile": True,
+         "genres": ["Drama", "Romance"], "certification": "R"},
+        {"title": "Alpha", "monitored": False, "hasFile": False,
+         "genres": ["Romance"], "certification": "PG-13"},
+        {"title": "Beta", "monitored": True, "hasFile": False,
+         "genres": ["Drama"], "certification": "R"},
+        {"title": "Gamma", "monitored": False, "hasFile": True,
+         "genres": ["Romantic Comedy"], "certification": "PG"},
+        {"title": "Missing"},
+        {"title": "Null", "genres": None, "certification": None},
+    ]
+    cases = [
+        (None, ["Alpha", "Beta", "Gamma", "Missing", "Null", "Zulu"]),
+        ({}, ["Alpha", "Beta", "Gamma", "Missing", "Null", "Zulu"]),
+        ({"monitored": True}, ["Beta", "Zulu"]),
+        ({"monitored": False}, ["Alpha", "Gamma"]),
+        ({"has_file": True}, ["Gamma", "Zulu"]),
+        ({"has_file": False}, ["Alpha", "Beta"]),
+        ({"genre": "  rOmAnCe  "}, ["Alpha", "Zulu"]),
+        ({"genre": "roman"}, []),
+        ({"certification": " r "}, ["Beta", "Zulu"]),
+        ({"certification": "PG"}, ["Gamma"]),
+        ({"monitored": False, "has_file": False}, ["Alpha"]),
+        ({"monitored": True, "has_file": True, "genre": "romance",
+          "certification": "R"}, ["Zulu"]),
+        ({"genre": "romance", "certification": "PG"}, []),
+    ]
+    with (
+        patch("media_stack.radarr.get_radarr_config", return_value=("http://radarr", "test")),
+        patch("media_stack.radarr.requests.get") as get,
+    ):
+        get.return_value.json.return_value = movies
+        for full_details in (False, True):
+            for movie_filter, expected in cases:
+                records = _parse_tsv(server.get_radarr_movies(
+                    full_details=full_details, filter=movie_filter,
+                ))
+                assert [record["title"] for record in records] == expected
+                if records:
+                    assert ("status" in records[0]) is full_details
+            assert server.get_radarr_movies(
+                full_details=full_details, title="alpha", filter={"monitored": True}
+            ) == "Empty list"
+            records = _parse_tsv(server.get_radarr_movies(
+                full_details=full_details, title=" zUL ", filter={"genre": "romance"}
+            ))
+            assert [record["title"] for record in records] == ["Zulu"]
+
+
+def test_get_radarr_movies_filter_validation():
+    """Invalid filter shapes, keys, and values fail before accessing Radarr."""
+    cases = [
+        ([], "Error: filter must be a JSON object"),
+        ('{"monitored": true}', "Error: filter must be a JSON object"),
+        ({"year": 2020}, "Error: unsupported filter key: year"),
+        ({"hasFile": True}, "Error: unsupported filter key: hasFile"),
+        ({"monitored": True, "unknown": True}, "Error: unsupported filter key: unknown"),
+    ]
+    for key in ("monitored", "has_file"):
+        for value in ("true", "false", 0, 1, None, [], {}):
+            cases.append(({key: value}, f"Error: filter.{key} must be a boolean"))
+    for key in ("genre", "certification"):
+        for value in ("", "   ", True, 1, None, [], {}):
+            cases.append(({key: value}, f"Error: filter.{key} must be a non-empty string"))
+    with (
+        patch("media_stack.radarr.get_radarr_config") as config,
+        patch("media_stack.radarr.requests.get") as get,
+    ):
+        for movie_filter, expected in cases:
+            assert server.get_radarr_movies(filter=movie_filter) == expected
+        config.assert_not_called()
+        get.assert_not_called()
+
+
+def test_get_radarr_movies_filter_mcp():
+    """JSON objects reach filtering and validation through the registered tool."""
+    async def check_filter():
+        async with Client(server.mcp) as client:
+            result = await client.call_tool("get_radarr_movies", {
+                "filter": {"monitored": True, "has_file": True,
+                           "genre": "romance", "certification": "R"},
+            })
+            assert result.data == "title\tyear\tmonitored\thas_file\nZulu\t\tTrue\tTrue"
+            for movie_filter, expected in [
+                ({"unknown": True}, "Error: unsupported filter key: unknown"),
+                ({"monitored": "true"}, "Error: filter.monitored must be a boolean"),
+                ({"has_file": 1}, "Error: filter.has_file must be a boolean"),
+            ]:
+                result = await client.call_tool("get_radarr_movies", {"filter": movie_filter})
+                assert result.data == expected
+
+    with (
+        patch("media_stack.radarr.get_radarr_config", return_value=("http://radarr", "test")),
+        patch("media_stack.radarr.requests.get") as get,
+    ):
+        get.return_value.json.return_value = [
+            {"title": "Zulu", "monitored": True, "hasFile": True,
+             "genres": ["Romance"], "certification": "R"},
+            {"title": "Alpha", "monitored": False},
+        ]
+        asyncio.run(check_filter())
+        assert get.call_count == 1
 
 
 def test_get_radarr_movies():
@@ -878,6 +990,9 @@ if __name__ == "__main__":
         test_get_radarr_movies_tool_schema,
         test_get_radarr_movies_title_filter,
         test_get_radarr_movies_title_validation,
+        test_get_radarr_movies_filter,
+        test_get_radarr_movies_filter_validation,
+        test_get_radarr_movies_filter_mcp,
         test_get_radarr_quality_profiles,
         test_get_radarr_root_folders,
         test_get_sonarr_validation_errors,
