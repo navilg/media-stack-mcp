@@ -7,6 +7,7 @@ import traceback
 import subprocess
 import sys
 from unittest.mock import patch
+from requests import RequestException
 from dotenv import load_dotenv
 import os
 
@@ -715,6 +716,46 @@ def test_get_radarr_movies_filter_mcp():
         assert get.call_count == 1
 
 
+def test_delete_radarr_movie_excludes_import_lists():
+    """Deleting a movie excludes it from import lists regardless of file removal."""
+    for kwargs, delete_files in [({}, True), ({"delete_files": True}, True), ({"delete_files": False}, False)]:
+        with (
+            patch("media_stack.radarr.get_radarr_config", return_value=("http://radarr", "test")),
+            patch("media_stack.radarr.requests.get") as get,
+            patch("media_stack.radarr.requests.delete") as delete,
+        ):
+            get.return_value.json.return_value = [{"id": 42, "title": "Dune"}]
+            result = server.delete_radarr_movie("  Dune  ", **kwargs)
+            assert result == f"Deleted Radarr movie 'Dune' (delete_files={delete_files})"
+            get.assert_called_once_with(
+                "http://radarr/api/v3/movie/lookup",
+                params={"term": "Dune"},
+                headers={"X-Api-Key": "test"},
+                timeout=20,
+            )
+            delete.assert_called_once_with(
+                "http://radarr/api/v3/movie/42",
+                params={"deleteFiles": str(delete_files).lower(), "addImportExclusion": "true"},
+                headers={"X-Api-Key": "test"},
+                timeout=20,
+            )
+            delete.return_value.raise_for_status.assert_called_once_with()
+
+
+def test_delete_radarr_movie_request_failure():
+    """A failed deletion must not report success."""
+    with (
+        patch("media_stack.radarr.get_radarr_config", return_value=("http://radarr", "test")),
+        patch("media_stack.radarr.requests.get") as get,
+        patch("media_stack.radarr.requests.delete") as delete,
+    ):
+        get.return_value.json.return_value = [{"id": 42, "title": "Dune"}]
+        delete.return_value.raise_for_status.side_effect = RequestException("Deletion failed")
+        assert server.delete_radarr_movie("Dune") == (
+            "Error: Failed to delete movie from Radarr: Deletion failed"
+        )
+
+
 def test_get_radarr_movies():
     print("\nTesting Radarr movies list")
     result_tsv = server.get_radarr_movies()
@@ -1115,6 +1156,8 @@ if __name__ == "__main__":
         test_get_radarr_movies_filter_mcp,
         test_get_radarr_quality_profiles,
         test_get_radarr_root_folders,
+        test_delete_radarr_movie_excludes_import_lists,
+        test_delete_radarr_movie_request_failure,
         test_get_sonarr_validation_errors,
         test_get_sonarr_shows,
         test_get_sonarr_shows_output_formats,

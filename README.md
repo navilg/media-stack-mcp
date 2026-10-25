@@ -29,7 +29,7 @@ The server currently exposes these MCP tools:
 - `get_radarr_quality_profiles()`
 - `get_radarr_root_folders()`
 - `add_radarr_movie(movie_query, root_folder_path, quality_profile_id)`
-- `delete_radarr_movie(movie_query, delete_files=False)`
+- `delete_radarr_movie(movie_query, delete_files=True)`
 - `get_radarr_current_downloads()`
 - `get_sonarr_shows(full_details=False, title=None, filter=None)`
 - `get_sonarr_quality_profiles()`
@@ -308,7 +308,7 @@ docker stop mcp-media-stack
 - `search_floppy_movie_by_title` uses Floppy search and then enriches each result with detailed metadata.
 - Trakt tools return condensed movie metadata including title, release date, ratings, genres, and certification.
 - `add_radarr_movie` looks up the movie by query string, then adds it with monitor set to movie only, minimum availability set to released, and search enabled.
-- `delete_radarr_movie` looks up the movie by query string before deleting it; set `delete_files=True` to remove the file from disk as well.
+- `delete_radarr_movie` looks up the movie by query string before deleting it and always adds an import-list exclusion so lists cannot automatically add it back. Media files are deleted by default; set `delete_files=False` to keep them on disk.
 - `get_radarr_current_downloads` reports queue items whose status is `downloading`, including progress percent and time-left fields when Radarr provides them.
 - `add_sonarr_show` adds a series and monitors only the requested season, not all seasons.
 - `delete_sonarr_show` looks up a series by query string before deleting it; set `delete_files=True` to remove files from disk as well.

@@ -237,7 +237,9 @@ def add_radarr_movie(movie_query: str, root_folder_path: str, quality_profile_id
 
 
 def delete_radarr_movie(movie_query: str, delete_files: bool = True) -> str:
-    """Remove a movie from Radarr; `delete_files` (default true) also removes media files. Errors as strings."""
+    """Remove a movie from Radarr and exclude it from import lists.
+    `delete_files` (default true) also removes media files. Errors as strings.
+    """
     if not movie_query or not movie_query.strip():
         return "Error: movie_query must not be empty"
 
@@ -286,7 +288,7 @@ def delete_radarr_movie(movie_query: str, delete_files: bool = True) -> str:
     try:
         response = requests.delete(
             delete_endpoint,
-            params={"deleteFiles": str(delete_files).lower()},
+            params={"deleteFiles": str(delete_files).lower(), "addImportExclusion": "true"},
             headers=headers,
             timeout=20,
         )
