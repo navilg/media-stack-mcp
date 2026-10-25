@@ -1098,6 +1098,46 @@ def test_add_sonarr_show_validation_errors():
         _restore_env(previous)
 
 
+def test_delete_sonarr_show_excludes_import_lists():
+    """Deleting a show excludes it from import lists regardless of file removal."""
+    for kwargs, delete_files in [({}, True), ({"delete_files": True}, True), ({"delete_files": False}, False)]:
+        with (
+            patch("media_stack.sonarr.get_sonarr_config", return_value=("http://sonarr", "test")),
+            patch("media_stack.sonarr.requests.get") as get,
+            patch("media_stack.sonarr.requests.delete") as delete,
+        ):
+            get.return_value.json.return_value = [{"id": 42, "title": "Dark"}]
+            result = server.delete_sonarr_show("  Dark  ", **kwargs)
+            assert result == f"Deleted Sonarr show 'Dark' (delete_files={delete_files})"
+            get.assert_called_once_with(
+                "http://sonarr/api/v3/series/lookup",
+                params={"term": "Dark"},
+                headers={"X-Api-Key": "test"},
+                timeout=20,
+            )
+            delete.assert_called_once_with(
+                "http://sonarr/api/v3/series/42",
+                params={"deleteFiles": str(delete_files).lower(), "addImportListExclusion": "true"},
+                headers={"X-Api-Key": "test"},
+                timeout=20,
+            )
+            delete.return_value.raise_for_status.assert_called_once_with()
+
+
+def test_delete_sonarr_show_request_failure():
+    """A failed deletion must not report success."""
+    with (
+        patch("media_stack.sonarr.get_sonarr_config", return_value=("http://sonarr", "test")),
+        patch("media_stack.sonarr.requests.get") as get,
+        patch("media_stack.sonarr.requests.delete") as delete,
+    ):
+        get.return_value.json.return_value = [{"id": 42, "title": "Dark"}]
+        delete.return_value.raise_for_status.side_effect = RequestException("Deletion failed")
+        assert server.delete_sonarr_show("Dark") == (
+            "Error: Failed to delete show from Sonarr: Deletion failed"
+        )
+
+
 def test_delete_sonarr_show_validation_errors():
     print("\nTesting Sonarr delete show validation")
 
@@ -1171,6 +1211,8 @@ if __name__ == "__main__":
         test_get_sonarr_root_folders,
         test_add_sonarr_show_validation_errors,
         test_delete_sonarr_show_validation_errors,
+        test_delete_sonarr_show_excludes_import_lists,
+        test_delete_sonarr_show_request_failure,
         test_get_trakt_public_watched_shows,
         test_get_trakt_public_watched_shows_validation_errors,
     ]

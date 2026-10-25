@@ -35,7 +35,7 @@ The server currently exposes these MCP tools:
 - `get_sonarr_quality_profiles()`
 - `get_sonarr_root_folders()`
 - `add_sonarr_show(show_query, root_folder_path, quality_profile_id, season_number_to_monitor)`
-- `delete_sonarr_show(show_query, delete_files=False)`
+- `delete_sonarr_show(show_query, delete_files=True)`
 - `get_sonarr_current_downloads()`
 
 `get_radarr_movies()` returns short TSV rows containing only `title`, `year`,
@@ -311,5 +311,5 @@ docker stop mcp-media-stack
 - `delete_radarr_movie` looks up the movie by query string before deleting it and always adds an import-list exclusion so lists cannot automatically add it back. Media files are deleted by default; set `delete_files=False` to keep them on disk.
 - `get_radarr_current_downloads` reports queue items whose status is `downloading`, including progress percent and time-left fields when Radarr provides them.
 - `add_sonarr_show` adds a series and monitors only the requested season, not all seasons.
-- `delete_sonarr_show` looks up a series by query string before deleting it; set `delete_files=True` to remove files from disk as well.
+- `delete_sonarr_show` looks up a series by query string before deleting it and always adds an import-list exclusion so lists cannot automatically add it back. Media files are deleted by default; set `delete_files=False` to keep them on disk.
 - `get_sonarr_current_downloads` reports queue items whose status is `downloading`, including progress percent and time-left fields when Sonarr provides them.

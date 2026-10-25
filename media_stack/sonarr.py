@@ -265,7 +265,9 @@ def add_sonarr_show(
 
 
 def delete_sonarr_show(show_query: str, delete_files: bool = True) -> str:
-    """Remove a series from Sonarr; `delete_files` (default true) also removes media files. Errors as strings."""
+    """Remove a series from Sonarr and exclude it from import lists.
+    `delete_files` (default true) also removes media files. Errors as strings.
+    """
     if not show_query or not show_query.strip():
         return "Error: show_query must not be empty"
 
@@ -314,7 +316,7 @@ def delete_sonarr_show(show_query: str, delete_files: bool = True) -> str:
     try:
         response = requests.delete(
             delete_endpoint,
-            params={"deleteFiles": str(delete_files).lower()},
+            params={"deleteFiles": str(delete_files).lower(), "addImportListExclusion": "true"},
             headers=headers,
             timeout=20,
         )
