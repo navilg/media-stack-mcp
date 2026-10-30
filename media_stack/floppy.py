@@ -173,7 +173,7 @@ def get_floppy_liked_movies(
     return to_tsv(movies)
 
 def get_floppy_liked_tv_seasons(
-        threshold_user_rating: int = 7,
+        threshold_user_rating: int = 8,
         days: int = 30,
         limit: int = 50,
 ) -> str:

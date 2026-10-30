@@ -23,7 +23,7 @@ The server currently exposes these MCP tools:
 - `get_floppy_watched_movies(days=30, limit=200)`
 - `get_floppy_watched_tv_seasons(days=30, limit=200)`
 - `get_floppy_liked_movies(threshold_user_rating=7, days=30, limit=50)`
-- `get_floppy_liked_tv_seasons(threshold_user_rating=7, days=30, limit=50)`
+- `get_floppy_liked_tv_seasons(threshold_user_rating=8, days=30, limit=50)`
 - `get_floppy_disliked_movies(threshold_user_rating=6, days=30, limit=50)`
 - `get_floppy_disliked_tv_seasons(threshold_user_rating=6, days=30, limit=50)`
 - `get_floppy_trending_movies()`
