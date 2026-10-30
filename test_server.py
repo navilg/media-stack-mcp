@@ -371,6 +371,126 @@ def test_get_floppy_watched_movies_validation_errors():
         _restore_env(previous)
 
 
+def test_get_floppy_watched_tv_seasons_validation_errors():
+    with patch("media_stack.floppy.requests.get") as get:
+        for days in (0, -1):
+            assert server.get_floppy_watched_tv_seasons(days=days) == "Error: days must be greater than 0"
+        for limit in (0, -1, 201):
+            assert server.get_floppy_watched_tv_seasons(limit=limit) == "Error: limit must be between 1 and 200"
+        with patch.dict(os.environ, {"FLOPPY_URL": "", "FLOPPY_API_KEY": ""}):
+            assert server.get_floppy_watched_tv_seasons() == "Error: FLOPPY_URL is not set"
+            os.environ["FLOPPY_URL"] = "http://localhost:8000"
+            assert server.get_floppy_watched_tv_seasons() == "Error: FLOPPY_API_KEY is not set"
+        get.assert_not_called()
+
+
+def test_get_floppy_watched_history():
+    """Movie and season history share date, status, and TSV behavior."""
+    from datetime import datetime, timezone
+
+    now = datetime(2026, 10, 30, 12, tzinfo=timezone.utc)
+    entries = [
+        {
+            "status": 3,
+            "played_at_local": "2026-10-29T20:00:00",
+            "display_title": "Dark - Season 1",
+            "score": 8,
+            "genres": ["Drama", "Mystery"],
+            "play_count": 2,
+            "item": {"title": "Season 1", "year": 2017},
+        },
+        {"status": 2, "display_title": "In progress"},
+        {
+            "status": " Completed ",
+            "title": "Dark - Season 2",
+            "media": {"details": {"year": 2019, "genres": ["Drama"]}},
+        },
+        {"status": "watching"},
+        {"item": {}},
+        {"status": 3, "item": {"title": "Season 3", "genres": ["Mystery"]}},
+    ]
+    for tool, media_type in (
+        (server.get_floppy_watched_movies, "movie"),
+        (server.get_floppy_watched_tv_seasons, "season"),
+    ):
+        with (
+            patch("media_stack.floppy.get_floppy_config", return_value=("http://floppy", "test")),
+            patch("media_stack.floppy.requests.get") as get,
+            patch("media_stack.floppy.datetime") as clock,
+        ):
+            clock.now.return_value = now
+            get.return_value.json.return_value = {"results": entries}
+            result = tool(days=7, limit=10)
+            assert result == (
+                "watched_at\ttitle\tyear\tuser_rating\tgenre\tplay_count\n"
+                "2026-10-29T20:00:00\tDark - Season 1\t2017\t8\tDrama,Mystery\t2\n"
+                "\tDark - Season 2\t2019\t\tDrama\t\n"
+                "\tSeason 3\t\t\tMystery\t"
+            )
+            get.assert_called_once_with(
+                "http://floppy/api/v1/history/",
+                params={
+                    "flat": "1", "media_type": media_type,
+                    "start_date": "2026-10-23", "end_date": "2026-10-30",
+                    "limit": 10, "offset": 0,
+                },
+                headers={"X-API-Key": "test"},
+                timeout=20,
+            )
+            get.return_value.raise_for_status.assert_called_once_with()
+            get.return_value.json.return_value = {"results": []}
+            assert tool() == "Empty list"
+            assert get.call_args.kwargs["params"]["limit"] == 200
+            assert get.call_args.kwargs["params"]["start_date"] == "2026-09-30"
+            get.return_value.json.return_value = {"results": [{"status": "watching"}]}
+            assert tool(limit=1) == "Empty list"
+            assert get.call_args.kwargs["params"]["limit"] == 1
+
+
+def test_get_floppy_watched_history_errors():
+    for tool, label in (
+        (server.get_floppy_watched_movies, "movies"),
+        (server.get_floppy_watched_tv_seasons, "TV seasons"),
+    ):
+        with (
+            patch("media_stack.floppy.get_floppy_config", return_value=("http://floppy", "test")),
+            patch("media_stack.floppy.requests.get") as get,
+        ):
+            get.side_effect = RequestException("Unavailable")
+            assert tool() == f"Error: Failed to fetch watched {label} from Floppy: Unavailable"
+            get.side_effect = None
+            get.return_value.raise_for_status.side_effect = RequestException("Forbidden")
+            assert tool() == f"Error: Failed to fetch watched {label} from Floppy: Forbidden"
+            get.return_value.raise_for_status.side_effect = None
+            for payload in ({}, {"results": None}, {"results": [None]}, {"results": [{"status": 3, "item": ["invalid"]}]}):
+                get.return_value.json.return_value = payload
+                assert tool() == "Error: Invalid response from Floppy"
+            get.return_value.json.side_effect = ValueError("Invalid JSON")
+            assert tool() == "Error: Invalid response from Floppy"
+
+
+def test_get_floppy_watched_tv_seasons_tool_schema():
+    async def check_schema():
+        async with Client(server.mcp) as client:
+            tools = await client.list_tools()
+            tool = next(tool for tool in tools if tool.name == "get_floppy_watched_tv_seasons")
+            assert "floppy" in tool.meta["fastmcp"]["tags"]
+            assert tool.inputSchema["properties"]["days"] == {"default": 30, "type": "integer"}
+            assert tool.inputSchema["properties"]["limit"] == {"default": 200, "type": "integer"}
+            assert not tool.inputSchema.get("required")
+            with (
+                patch("media_stack.floppy.get_floppy_config", return_value=("http://floppy", "test")),
+                patch("media_stack.floppy.requests.get") as get,
+            ):
+                get.return_value.json.return_value = {"results": []}
+                result = await client.call_tool("get_floppy_watched_tv_seasons", {})
+                assert not result.is_error
+                assert result.content[0].text == "Empty list"
+                assert get.call_args.kwargs["params"]["media_type"] == "season"
+
+    asyncio.run(check_schema())
+
+
 def test_get_floppy_latest_high_rated_movies():
     from datetime import datetime, timedelta, timezone
     from unittest import SkipTest
@@ -1163,6 +1283,10 @@ if __name__ == "__main__":
         test_get_floppy_latest_high_rated_movies_validation_errors,
         test_get_floppy_popular_movies_validation_errors,
         test_get_floppy_watched_movies_validation_errors,
+        test_get_floppy_watched_tv_seasons_validation_errors,
+        test_get_floppy_watched_history,
+        test_get_floppy_watched_history_errors,
+        test_get_floppy_watched_tv_seasons_tool_schema,
         test_parse_toolsets_handles_whitespace,
         test_parse_toolsets_invalid,
         test_compute_tags_to_disable_default,

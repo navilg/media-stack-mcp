@@ -38,6 +38,15 @@ def get_floppy_movie_details(media_id: str, source: str = "tmdb") -> dict:
 
 def get_floppy_watched_movies(days: int = 30, limit: int = 200) -> str:
     """List completed Floppy movie history from the last `days` as TSV (limit 1-200; errors as strings)."""
+    return _get_floppy_watched_history(days, limit, "movie", "movies")
+
+
+def get_floppy_watched_tv_seasons(days: int = 30, limit: int = 200) -> str:
+    """List completed Floppy TV season history from the last `days` as TSV (limit 1-200; errors as strings)."""
+    return _get_floppy_watched_history(days, limit, "season", "TV seasons")
+
+
+def _get_floppy_watched_history(days: int, limit: int, media_type: str, label: str) -> str:
     if days <= 0:
         return "Error: days must be greater than 0"
     if limit <= 0 or limit > 200:
@@ -51,7 +60,7 @@ def get_floppy_watched_movies(days: int = 30, limit: int = 200) -> str:
     now_utc = datetime.now(timezone.utc)
     params = {
         "flat": "1",
-        "media_type": "movie",
+        "media_type": media_type,
         "start_date": (now_utc - timedelta(days=days)).date().isoformat(),
         "end_date": now_utc.date().isoformat(),
         "limit": limit,
@@ -67,7 +76,7 @@ def get_floppy_watched_movies(days: int = 30, limit: int = 200) -> str:
         )
         response.raise_for_status()
         payload = response.json()
-        watched_movies: list[dict] = []
+        watched_items: list[dict] = []
         for entry in payload["results"]:
             status = entry.get("status")
             if not (
@@ -77,7 +86,7 @@ def get_floppy_watched_movies(days: int = 30, limit: int = 200) -> str:
                 continue
             item = entry.get("item") or entry.get("media") or {}
             details = item.get("details") or {}
-            watched_movies.append(
+            watched_items.append(
                 {
                     "watched_at": entry.get("played_at_local"),
                     "title": entry.get("display_title") or entry.get("title") or item.get("title"),
@@ -88,11 +97,11 @@ def get_floppy_watched_movies(days: int = 30, limit: int = 200) -> str:
                 }
             )
     except requests.RequestException as exc:
-        return f"Error: Failed to fetch watched movies from Floppy: {exc}"
+        return f"Error: Failed to fetch watched {label} from Floppy: {exc}"
     except (KeyError, TypeError, ValueError, AttributeError):
         return "Error: Invalid response from Floppy"
 
-    return to_tsv(watched_movies)
+    return to_tsv(watched_items)
 
 
 def get_floppy_liked_movies(

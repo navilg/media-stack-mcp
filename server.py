@@ -12,6 +12,7 @@ from media_stack.constants import VALID_TOOLSETS
 from media_stack.floppy import (
     get_floppy_trending_movies,
     get_floppy_watched_movies,
+    get_floppy_watched_tv_seasons,
     get_floppy_liked_movies,
     get_floppy_disliked_movies,
     search_floppy_movie_by_title,
@@ -59,6 +60,7 @@ def _register_tools() -> None:
 
     floppy_tools = [
         get_floppy_watched_movies,
+        get_floppy_watched_tv_seasons,
         get_floppy_liked_movies,
         get_floppy_disliked_movies,
         get_floppy_trending_movies,
