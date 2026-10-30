@@ -172,6 +172,74 @@ def get_floppy_liked_movies(
 
     return to_tsv(movies)
 
+def get_floppy_liked_tv_seasons(
+        threshold_user_rating: int = 7,
+        days: int = 30,
+        limit: int = 50,
+) -> str:
+    """List recent Floppy TV seasons rated >= `threshold_user_rating` as TSV; errors as strings."""
+    if limit <= 0 or limit > 200:
+        return "Error: limit must be between 1 and 200"
+
+    config = get_floppy_config()
+    if isinstance(config, str):
+        return config
+    floppy_url, api_key = config
+
+    now_utc = datetime.now(timezone.utc)
+    params = {
+        "completed_date_from": (now_utc - timedelta(days=days)).strftime("%Y-%m-%d"),
+        "completed_date_to": now_utc.strftime("%Y-%m-%d"),
+        "status": "3",
+        "rating": "rated",
+        "sort": "end_date",
+        "direction": "desc",
+        "limit": 200,
+        "offset": 0,
+    }
+    seasons: list[dict] = []
+
+    try:
+        while len(seasons) < limit:
+            response = requests.get(
+                f"{floppy_url}/api/v1/media/season/",
+                params=params,
+                headers={"X-API-Key": api_key},
+                timeout=20,
+            )
+            response.raise_for_status()
+            payload = response.json()
+            entries = payload["results"]
+            for entry in entries:
+                score = entry.get("score")
+                if not isinstance(score, (int, float)) or score < threshold_user_rating:
+                    continue
+                item = entry.get("item") or {}
+                seasons.append(
+                    {
+                        "title": item.get("title"),
+                        "season_number": entry.get("season_number"),
+                        "year": item.get("release_datetime", "")[:4],
+                        "imdb_rating": item.get("imdb_rating"),
+                        "provider_rating": item.get("provider_rating"),
+                        "user_rating": score,
+                        "genres": item.get("genres"),
+                        "completed_date": entry.get("end_date"),
+                        "certification": item.get("provider_certification"),
+                        "language": (item.get("languages") or [""])[0],
+                        "overview": item.get("synopsis"),
+                    }
+                )
+                if len(seasons) == limit:
+                    break
+            params["offset"] += len(entries)
+            if not entries or params["offset"] >= payload["pagination"]["total"]:
+                break
+    except (requests.RequestException, ValueError, KeyError, TypeError) as exc:
+        return f"Error: Failed to fetch latest completed TV seasons from Floppy: {exc}"
+
+    return to_tsv(seasons)
+
 def get_floppy_disliked_movies(
         threshold_user_rating: int = 6,
         days: int = 30,
