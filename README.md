@@ -25,6 +25,7 @@ The server currently exposes these MCP tools:
 - `get_floppy_liked_movies(threshold_user_rating=7, days=30, limit=50)`
 - `get_floppy_liked_tv_seasons(threshold_user_rating=7, days=30, limit=50)`
 - `get_floppy_disliked_movies(threshold_user_rating=6, days=30, limit=50)`
+- `get_floppy_disliked_tv_seasons(threshold_user_rating=6, days=30, limit=50)`
 - `get_floppy_trending_movies()`
 - `search_floppy_movie_by_title(title, limit=5)`
 - `get_radarr_movies(full_details=False, title=None, filter=None)`
@@ -209,7 +210,7 @@ You can disable entire groups of related tools at startup using the `DISABLE_TOO
 
 Available toolset names:
 
-- `floppy`: All Floppy tools (`get_floppy_watched_movies`, `get_floppy_watched_tv_seasons`, `get_floppy_liked_movies`, `get_floppy_liked_tv_seasons`, `get_floppy_disliked_movies`, `get_floppy_trending_movies`, `search_floppy_movie_by_title`)
+- `floppy`: All Floppy tools (`get_floppy_watched_movies`, `get_floppy_watched_tv_seasons`, `get_floppy_liked_movies`, `get_floppy_liked_tv_seasons`, `get_floppy_disliked_movies`, `get_floppy_disliked_tv_seasons`, `get_floppy_trending_movies`, `search_floppy_movie_by_title`)
 - `trakt`: All Trakt tools (profile, watched, liked, disliked, latest high-rated, popular, trending, search)
 - `radarr`: All Radarr tools (list, quality, root folders, add, delete, downloads)
 - `sonarr`: Sonarr tools (`get_sonarr_shows`, `get_sonarr_quality_profiles`, `get_sonarr_root_folders`, `add_sonarr_show`, `delete_sonarr_show`, `get_sonarr_current_downloads`)
@@ -307,7 +308,7 @@ docker stop mcp-media-stack
 - `get_floppy_watched_movies` reads the authenticated user's movie history for the last `days` dates, returning completed entries only, newest first, up to `limit` (maximum 200). Repeat plays are represented by Floppy's `play_count`. The history endpoint requires a Floppy API key with watchlist read access.
 - `get_floppy_watched_tv_seasons` uses the same history endpoint and date/limit rules, filtered to completed TV season entries (`media_type=season`), not individual episodes or partially watched seasons. It returns TSV columns `watched_at`, `title`, `year`, `user_rating`, `genre`, and `play_count`, using Floppy's display title to identify the season when available. No matching entries returns `Empty list`; failures return an `Error:` string.
 - `get_floppy_liked_movies` and `get_floppy_liked_tv_seasons` read rated, completed movies/TV seasons in the requested date window and then filter using the `threshold_user_rating` argument before applying the final `limit`. Returns TSV with title, year, ratings (imdb_rating, provider_rating, user_rating), genres, completed_date, certification, language, and overview.
-- `get_floppy_disliked_movies` reads rated, completed movies in the requested date window and then filters using the `threshold_user_rating` argument before applying the final `limit`.
+- `get_floppy_disliked_movies` and `get_floppy_disliked_tv_seasons` read rated, completed movies/TV seasons in the requested date window and then filter using the `threshold_user_rating` argument before applying the final `limit`. Returns TSV with the same fields as the liked variants.
 - `get_floppy_trending_movies` returns up to 20 entries from Floppy discover data (`trending_right_now`) and enriches each result with detailed metadata.
 - `search_floppy_movie_by_title` uses Floppy search and then enriches each result with detailed metadata.
 - Trakt tools return condensed movie metadata including title, release date, ratings, genres, and certification.
