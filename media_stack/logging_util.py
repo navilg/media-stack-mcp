@@ -7,7 +7,8 @@ from typing import Any, Callable, TypeVar
 logger = logging.getLogger(__name__)
 logging.basicConfig(
     level=logging.INFO,
-    format='%(message)s'
+    format='%(levelname)s - %(asctime)s: %(message)s',
+    datefmt='%Y-%m-%d %H:%M:%S'
 )
 
 F = TypeVar('F', bound=Callable[..., Any])
@@ -49,7 +50,7 @@ def log_tool_call(func: F) -> F:
             
         except Exception as exc:
             # Log failure with error message
-            logger.info(f"Tool calling failed: {func.__name__} - {exc}")
+            logger.error(f"Tool calling failed: {func.__name__} - {exc}")
             # Print error to stderr for visibility
             print(f"Error in {func.__name__}: {exc}", file=sys.stderr)
             raise
