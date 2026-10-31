@@ -1,6 +1,6 @@
 # MCP Media Stack
 
-FastMCP server that exposes media tools backed by Trakt, Floppy, Radarr, and Sonarr.
+FastMCP server that exposes media tools backed by Trakt, Floppy, TMDB, Radarr, and Sonarr.
 
 ## Tools
 
@@ -20,6 +20,7 @@ The server currently exposes these MCP tools:
 - `get_trakt_trending_shows(limit=50)`
 - `search_trakt_movie_by_title(title, year=None, limit=5)`
 - `search_trakt_show_by_title(title, year=None, limit=5)`
+- `get_tmdb_latest_high_rated_movies(days=30, threshold_rating=7, limit=50)`
 - `get_floppy_watched_movies(days=30, limit=200)`
 - `get_floppy_watched_tv_seasons(days=30, limit=200)`
 - `get_floppy_liked_movies(threshold_user_rating=7, days=30, limit=50)`
@@ -97,15 +98,16 @@ unchanged in both short and full formats.
 
 Set the following as needed:
 
-- `TRAKT_CLIENT_ID` (required)
+- `TRAKT_CLIENT_ID` (required for Trakt tools)
 - `TRAKT_USERNAME` (optional default username if `username` tool argument is omitted)
+- `TMDB_API_KEY` (required for TMDB tools; use Bearer token format)
 - `RADARR_URL` (required for Radarr tools)
 - `RADARR_API_KEY` (required for Radarr tools)
 - `SONARR_URL` (required for Sonarr tools)
 - `SONARR_API_KEY` (required for Sonarr tools)
 - `FLOPPY_URL` (Floppy instance base URL, required for Floppy tools)
 - `FLOPPY_API_KEY` (required for Floppy tools; needs `watchlist:read` scope)
-- `DISABLE_TOOLSETS` (optional comma-separated list of toolsets to disable at startup, e.g. `radarr,trakt`)
+- `DISABLE_TOOLSETS` (optional comma-separated list of toolsets to disable at startup, e.g. `radarr,tmdb,trakt`)
 
 ## Quick start (Docker)
 
@@ -121,6 +123,7 @@ Run container (port 8000):
 docker run --rm -p 8000:8000 \
   -e TRAKT_CLIENT_ID=your_trakt_client_id \
   -e TRAKT_USERNAME=your_trakt_username \
+  -e TMDB_API_KEY=your_tmdb_api_token \
   -e DISABLE_TOOLSETS=radarr \
   --name mcp-media-stack \
   mcp-media-stack:latest
@@ -166,6 +169,7 @@ Create `.env`:
 ```env
 TRAKT_CLIENT_ID=your_trakt_client_id
 TRAKT_USERNAME=your_trakt_username
+TMDB_API_KEY=your_tmdb_api_token
 DISABLE_TOOLSETS=radarr
 ```
 
