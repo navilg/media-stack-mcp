@@ -415,7 +415,7 @@ def get_floppy_disliked_movies(
 
 
 def get_floppy_disliked_tv_seasons(
-        threshold_user_rating: int = 6,
+        threshold_user_rating: int = 7,
         days: int = 30,
         limit: int = 50,
 ) -> str:
