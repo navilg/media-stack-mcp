@@ -42,6 +42,7 @@ from media_stack.sonarr import (
 )
 from media_stack.tmdb import (
     get_tmdb_latest_high_rated_movies,
+    get_tmdb_latest_high_rated_shows,
 )
 from media_stack.trakt import (
     check_trakt_profile_privacy,
@@ -114,6 +115,7 @@ def _register_tools() -> None:
     ]
     tmdb_tools = [
         get_tmdb_latest_high_rated_movies,
+        get_tmdb_latest_high_rated_shows,
     ]
     
     for tool in floppy_tools:

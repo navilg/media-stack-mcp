@@ -21,6 +21,7 @@ The server currently exposes these MCP tools:
 - `search_trakt_movie_by_title(title, year=None, limit=5)`
 - `search_trakt_show_by_title(title, year=None, limit=5)`
 - `get_tmdb_latest_high_rated_movies(days=30, threshold_rating=7, limit=50)`
+- `get_tmdb_latest_high_rated_shows(days=30, threshold_rating=7, limit=50)`
 - `get_floppy_watched_movies(days=30, limit=200)`
 - `get_floppy_watched_tv_seasons(days=30, limit=200)`
 - `get_floppy_liked_movies(threshold_user_rating=7, days=30, limit=50)`
@@ -30,6 +31,22 @@ The server currently exposes these MCP tools:
 - `get_floppy_trending_movies()`
 - `search_floppy_movie_by_title(title, limit=5)`
 - `search_floppy_tv_show_by_title(title, limit=5)`
+
+`get_tmdb_latest_high_rated_movies()` and `get_tmdb_latest_high_rated_shows()` 
+fetch recent high-rated content from TMDB with automatic retry logic (10 attempts 
+with exponential backoff) to handle intermittent API failures. Both tools filter 
+by release date, minimum vote average (≥7), and vote count (≥50), sorted by 
+popularity. Pagination loops until the limit is reached or all pages are exhausted.
+
+`get_tmdb_latest_high_rated_shows()` filters TV shows by their latest season 
+premiere date, requiring an extra API call per show to determine the most recent 
+season's air date. This is useful for discovering shows with recent season releases.
+
+Output is TSV format. Movies output: `title`, `release_date`, `average_rating`, 
+`vote_count`, `popularity`, `genre_ids`, `original_language`, `overview`, `tmdb_id`. 
+TV output: `name`, `latest_air_date`, `average_rating`, `vote_count`, `popularity`, 
+`genre_ids`, `original_language`, `overview`, `tmdb_id`.
+
 - `get_radarr_movies(full_details=False, title=None, filter=None)`
 - `get_radarr_quality_profiles()`
 - `get_radarr_root_folders()`
