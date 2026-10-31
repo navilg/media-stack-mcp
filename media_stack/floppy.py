@@ -476,6 +476,81 @@ def search_floppy_movie_by_title(title: str, limit: int = 5) -> str:
 
     return to_tsv(movies)
 
+def search_floppy_tv_show_by_title(title: str, limit: int = 5) -> str:
+    """Search Floppy TV shows by title; return TSV (default limit 5, errors as strings)."""
+    config = get_floppy_config()
+    if isinstance(config, str):
+        return config
+    floppy_url, api_key = config
+
+    params = {
+        "search": title,
+        "limit": limit,
+    }
+    shows: list[dict] = []
+
+    try:
+        response = requests.get(
+            f"{floppy_url}/api/v1/search/tv/",
+            params=params,
+            headers={"X-API-Key": api_key},
+            timeout=20,
+        )
+        response.raise_for_status()
+        payload = response.json()
+        items = payload.get("results") or []
+        for item in items:
+            show = get_floppy_tv_show_details(media_id=item.get("media_id"), source=item.get("source"))
+            show_details = show.get("details") or {}
+            shows.append(
+                {
+                    "title": item.get("title"),
+                    "year": item.get("year", ""),
+                    "status": show_details.get("status") or None,
+                    "rating": show.get("score") or None,
+                    "genres": show.get("genres", []),
+                    "certification": show_details.get("certification") or None,
+                    "language": (show_details.get("languages") or [None])[0],
+                    "overview": show.get("synopsis"),
+                    "source": item.get("source"),
+                }
+            )
+            if len(shows) == limit:
+                break
+    except (requests.RequestException, ValueError, KeyError, TypeError) as exc:
+        return f"Error: Failed to search TV shows on Floppy: {exc}"
+
+    return to_tsv(shows)
+
+def get_floppy_tv_show_details(media_id: str, source: str = "tmdb") -> dict:
+    """Get TV show details from Floppy; return a dict with an `error` field on failure."""
+    config = get_floppy_config()
+    if isinstance(config, str):
+        return {"error": config}
+    floppy_url, api_key = config
+
+    try:
+        response = requests.get(
+            f"{floppy_url}/api/v1/media/tv/{source}/{media_id}/",
+            headers={"X-API-Key": api_key},
+            timeout=20,
+        )
+        response.raise_for_status()
+        payload = response.json()
+        fields_to_remove = (
+            "id", "source_url", "max_progress", "episodes_left",
+            "total_episodes_left", "image", "backdrop", "cast",
+            "crew", "related", "item_id", "parent_id", "tracked",
+            "consumptions_number", "consumptions", "lists", "media_type_status"
+        )
+        for key in fields_to_remove:
+            payload.pop(key, None)
+        return payload
+    except requests.RequestException as exc:
+        return {"error": f"Error: Failed to fetch TV show details from Floppy: {exc}"}
+    except (KeyError, TypeError, ValueError, AttributeError):
+        return {"error": "Error: Invalid response from Floppy"}
+
 def get_floppy_top_picks_movie(limit: int = 10) -> str:
     """List Floppy movie recommendations as TSV (default limit 10; errors as strings)."""
     config = get_floppy_config()

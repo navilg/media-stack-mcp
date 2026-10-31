@@ -28,6 +28,7 @@ The server currently exposes these MCP tools:
 - `get_floppy_disliked_tv_seasons(threshold_user_rating=6, days=30, limit=50)`
 - `get_floppy_trending_movies()`
 - `search_floppy_movie_by_title(title, limit=5)`
+- `search_floppy_tv_show_by_title(title, limit=5)`
 - `get_radarr_movies(full_details=False, title=None, filter=None)`
 - `get_radarr_quality_profiles()`
 - `get_radarr_root_folders()`
@@ -210,7 +211,7 @@ You can disable entire groups of related tools at startup using the `DISABLE_TOO
 
 Available toolset names:
 
-- `floppy`: All Floppy tools (`get_floppy_watched_movies`, `get_floppy_watched_tv_seasons`, `get_floppy_liked_movies`, `get_floppy_liked_tv_seasons`, `get_floppy_disliked_movies`, `get_floppy_disliked_tv_seasons`, `get_floppy_trending_movies`, `search_floppy_movie_by_title`)
+- `floppy`: All Floppy tools (`get_floppy_watched_movies`, `get_floppy_watched_tv_seasons`, `get_floppy_liked_movies`, `get_floppy_liked_tv_seasons`, `get_floppy_disliked_movies`, `get_floppy_disliked_tv_seasons`, `get_floppy_trending_movies`, `search_floppy_movie_by_title`, `search_floppy_tv_show_by_title`)
 - `trakt`: All Trakt tools (profile, watched, liked, disliked, latest high-rated, popular, trending, search)
 - `radarr`: All Radarr tools (list, quality, root folders, add, delete, downloads)
 - `sonarr`: Sonarr tools (`get_sonarr_shows`, `get_sonarr_quality_profiles`, `get_sonarr_root_folders`, `add_sonarr_show`, `delete_sonarr_show`, `get_sonarr_current_downloads`)
@@ -311,6 +312,7 @@ docker stop mcp-media-stack
 - `get_floppy_disliked_movies` and `get_floppy_disliked_tv_seasons` read rated, completed movies/TV seasons in the requested date window and then filter using the `threshold_user_rating` argument before applying the final `limit`. Returns TSV with the same fields as the liked variants.
 - `get_floppy_trending_movies` returns up to 20 entries from Floppy discover data (`trending_right_now`) and enriches each result with detailed metadata.
 - `search_floppy_movie_by_title` uses Floppy search and then enriches each result with detailed metadata.
+- `search_floppy_tv_show_by_title` uses Floppy search for TV shows and then enriches each result with detailed metadata. Returns TSV with title, year, status, rating, genres, certification, language, overview, and source.
 - Trakt tools return condensed movie metadata including title, release date, ratings, genres, and certification.
 - `add_radarr_movie` looks up the movie by query string, then adds it with monitor set to movie only, minimum availability set to released, and search enabled.
 - `delete_radarr_movie` looks up the movie by query string before deleting it and always adds an import-list exclusion so lists cannot automatically add it back. Media files are deleted by default; set `delete_files=False` to keep them on disk.
