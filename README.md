@@ -238,6 +238,41 @@ docker run --rm -p 8000:8000 \
   mcp-media-stack:latest python server.py --transport sse
 ```
 
+## Bearer token authentication (Streamable HTTP only)
+
+When using the Streamable HTTP transport (default), you can optionally enable bearer token authentication by setting the `MCP_AUTH_TOKEN` environment variable.
+
+**Token requirements:**
+- At least 10 characters long
+- At least 2 lowercase letters
+- At least 2 uppercase letters
+- At least 2 digits
+
+If the environment variable is not set or is empty, the server will accept requests without authentication.
+
+Example token: `MySecurePass123`
+
+Set the token in your `.env` file:
+
+```bash
+MCP_AUTH_TOKEN=MySecurePass123
+```
+
+Then configure your MCP client to send the bearer token in the `Authorization` header:
+
+```
+Authorization: Bearer MySecurePass123
+```
+
+For Docker:
+
+```bash
+docker run --rm -p 8000:8000 \
+  --env MCP_AUTH_TOKEN=MySecurePass123 \
+  --name mcp-media-stack \
+  mcp-media-stack:latest
+```
+
 ## Disabling tool groups
 
 You can disable entire groups of related tools at startup using the `DISABLE_TOOLSETS` environment variable. This is useful when you only want to expose Trakt tools or Radarr tools, not both.

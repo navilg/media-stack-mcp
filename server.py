@@ -1,8 +1,10 @@
 import argparse
 import os
+import sys
 
 from fastmcp import FastMCP
 
+from media_stack.auth import create_bearer_auth
 from media_stack.config import (
     compute_tags_to_disable as _compute_tags_to_disable,
     get_radarr_config as _get_radarr_config,
@@ -63,10 +65,29 @@ from media_stack.trakt import (
     search_trakt_show_by_title,
 )
 
-mcp = FastMCP(name="Media Stack MCP")
+
+def _create_mcp(use_auth: bool = True) -> FastMCP:
+    """Create and configure FastMCP instance.
+
+    Args:
+        use_auth: Whether to enable bearer token authentication
+
+    Returns:
+        Configured FastMCP instance
+    """
+    auth_provider = None
+    if use_auth:
+        auth_provider = create_bearer_auth(env_var="MCP_AUTH_TOKEN")
+
+    return FastMCP(name="Media Stack MCP", auth=auth_provider)
 
 
-def _register_tools() -> None:
+def _register_tools(mcp: FastMCP) -> None:
+    """Register all tools with the FastMCP instance.
+
+    Args:
+        mcp: FastMCP instance to register tools with
+    """
 
     floppy_tools = [
         get_floppy_watched_movies,
@@ -121,7 +142,7 @@ def _register_tools() -> None:
         get_tmdb_trending_movies,
         get_tmdb_trending_shows,
     ]
-    
+
     for tool in floppy_tools:
         mcp.tool(tags={"floppy"})(tool)
 
@@ -154,11 +175,22 @@ def main() -> None:
     _parse_toolsets(disable_toolsets_env)
     tags_to_disable = _compute_tags_to_disable(disable_toolsets_env)
 
+    # Enable authentication only for streamable-http transport
+    use_auth = args.transport == "streamable-http"
+    mcp = _create_mcp(use_auth=use_auth)
+
+    # Warn if streamable-http transport is used without authentication
+    if args.transport == "streamable-http" and not os.getenv("MCP_AUTH_TOKEN"):
+        print(
+            "⚠️  WARNING: Running streamable-http transport without MCP_AUTH_TOKEN "
+            "environment variable. This means the server is running without authentication. "
+            "Set MCP_AUTH_TOKEN to enable bearer token authentication.",
+            file=sys.stderr,
+        )
+
     mcp.disable(tags=tags_to_disable)
+    _register_tools(mcp)
     mcp.run(transport=args.transport, host=args.host, port=args.port)
-
-
-_register_tools()
 
 
 if __name__ == "__main__":
