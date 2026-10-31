@@ -14,7 +14,7 @@ F = TypeVar('F', bound=Callable[..., Any])
 
 
 def log_tool_call(func: F) -> F:
-    """Decorator to log tool calls with arguments and any errors in a single line."""
+    """Decorator to log tool calls with arguments before execution."""
     @wraps(func)
     def wrapper(*args: Any, **kwargs: Any) -> Any:
         # Combine positional and keyword arguments
@@ -33,26 +33,19 @@ def log_tool_call(func: F) -> F:
         # Add keyword arguments
         call_args.update(kwargs)
         
+        # Log tool call BEFORE execution
+        log_message = {
+            "tool_name": func.__name__,
+            "arguments": call_args
+        }
+        logger.info(f"Tool called: {json.dumps(log_message)}")
+        
         try:
             # Execute the function
             result = func(*args, **kwargs)
-            
-            # Log successful tool call
-            log_message = {
-                "tool_name": func.__name__,
-                "arguments": call_args
-            }
-            logger.info(f"Tool called: {json.dumps(log_message)}")
             return result
             
         except Exception as exc:
-            # Log tool call with error
-            log_message = {
-                "tool_name": func.__name__,
-                "arguments": call_args,
-                "error": str(exc)
-            }
-            logger.info(f"Tool called: {json.dumps(log_message)}")
             # Print error to stderr for visibility
             print(f"Error in {func.__name__}: {exc}", file=sys.stderr)
             raise
