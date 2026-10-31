@@ -4,12 +4,47 @@ import sys
 from functools import wraps
 from typing import Any, Callable, TypeVar
 
+# ANSI color codes
+COLORS = {
+    'INFO': '\033[92m',      # Green
+    'WARNING': '\033[93m',   # Yellow
+    'ERROR': '\033[91m',     # Red
+    'RESET': '\033[0m'       # Reset
+}
+
+
+def colorize_level(levelname: str) -> str:
+    """Colorize log level name."""
+    if levelname in COLORS:
+        return f"{COLORS[levelname]}{levelname}:{COLORS['RESET']}"
+    return f"{levelname}:"
+
+
+def format_log_record(record: logging.LogRecord) -> str:
+    """Format a log record with color and timestamp."""
+    levelname = colorize_level(record.levelname)
+    timestamp = record.created
+    import time
+    time_str = time.strftime('%Y-%m-%d %H:%M:%S', time.localtime(timestamp))
+    message = record.getMessage()
+    return f"{levelname} {time_str}: {message}"
+
+
 logger = logging.getLogger(__name__)
-logging.basicConfig(
-    level=logging.INFO,
-    format='%(levelname)s - %(asctime)s: %(message)s',
-    datefmt='%Y-%m-%d %H:%M:%S'
-)
+logger.setLevel(logging.INFO)
+
+# Create console handler
+handler = logging.StreamHandler(sys.stderr)
+handler.setLevel(logging.INFO)
+
+# Custom formatter using function
+class CustomFormatter(logging.Formatter):
+    def format(self, record):
+        return format_log_record(record)
+
+formatter = CustomFormatter()
+handler.setFormatter(formatter)
+logger.addHandler(handler)
 
 F = TypeVar('F', bound=Callable[..., Any])
 

@@ -8,3 +8,4 @@
 - Target Python 3.11+. Avoid adding dependencies unless needed; update `requirements.txt` when one is introduced.
 - For behavior changes, add or update focused tests and run `python test_server.py`. `test_mcp_http.py` is for checking a running HTTP server.
 - Update `README.md` when changing public MCP tools, arguments, output, configuration, or run instructions.
+- Always keep the code simple. Use functions/method without class.
