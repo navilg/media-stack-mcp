@@ -22,6 +22,7 @@ The server currently exposes these MCP tools:
 - `search_trakt_show_by_title(title, year=None, limit=5)`
 - `get_tmdb_latest_high_rated_movies(days=30, threshold_rating=7, limit=50)`
 - `get_tmdb_latest_high_rated_shows(days=30, threshold_rating=7, limit=50)`
+- `get_tmdb_trending_movies(limit=50, time_window=week)`
 - `get_floppy_watched_movies(days=30, limit=200)`
 - `get_floppy_watched_tv_seasons(days=30, limit=200)`
 - `get_floppy_liked_movies(threshold_user_rating=7, days=30, limit=50)`
@@ -41,6 +42,11 @@ popularity. Pagination loops until the limit is reached or all pages are exhaust
 `get_tmdb_latest_high_rated_shows()` filters TV shows by their latest season 
 premiere date, requiring an extra API call per show to determine the most recent 
 season's air date. This is useful for discovering shows with recent season releases.
+
+`get_tmdb_trending_movies()` fetches trending movies from TMDB for the specified 
+time window (day or week). It includes automatic retry logic (10 attempts with 
+exponential backoff) and pagination until the limit is reached or all pages are 
+exhausted.
 
 Output is TSV format. Movies output: `title`, `release_date`, `average_rating`, 
 `vote_count`, `popularity`, `genre_ids`, `original_language`, `overview`, `tmdb_id`. 

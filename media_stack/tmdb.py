@@ -248,3 +248,84 @@ def get_tmdb_latest_high_rated_shows(
         return f"Error: Failed to fetch latest shows from TMDB: {exc}"
 
     return to_tsv(all_shows)
+
+
+def get_tmdb_trending_movies(
+    limit: int = 50,
+    time_window: str = "week",
+) -> str:
+    """List trending TMDB movies as TSV.
+    
+    Loops through paginated results until reaching the total limit or exhausting all pages.
+    Retries up to 10 times on transient failures with exponential backoff.
+    
+    Args:
+        limit: Maximum number of movies to return (default 50)
+        time_window: Time window for trending (day or week; default week)
+    """
+    headers = _get_tmdb_headers()
+
+    if isinstance(headers, str):
+        return headers
+    if limit <= 0:
+        return "Error: limit must be greater than 0"
+    if time_window not in ("day", "week"):
+        return "Error: time_window must be 'day' or 'week'"
+
+    endpoint = f"{TMDB_API_BASE}/trending/movie/{time_window}"
+    params = {
+        "page": 1,
+    }
+
+    all_movies: list[dict] = []
+    max_retries = 10
+    base_delay = 1  # Start with 1 second
+
+    try:
+        while len(all_movies) < limit:
+            retry_count = 0
+            while retry_count < max_retries:
+                try:
+                    response = requests.get(endpoint, params=params, headers=headers, timeout=20)
+                    response.raise_for_status()
+                    data = response.json()
+                    break
+                except (requests.RequestException, ValueError) as exc:
+                    retry_count += 1
+                    if retry_count >= max_retries:
+                        return f"Error: Failed to fetch trending movies from TMDB after {max_retries} retries: {exc}"
+                    delay = base_delay * (2 ** (retry_count - 1))
+                    time.sleep(delay)
+
+            movies_data = data.get("results", [])
+            if not movies_data:
+                break
+
+            for movie in movies_data:
+                if len(all_movies) >= limit:
+                    break
+
+                all_movies.append(
+                    {
+                        "title": movie.get("title"),
+                        "release_date": movie.get("release_date"),
+                        "average_rating": round(movie.get("vote_average", 0), 2),
+                        "vote_count": movie.get("vote_count"),
+                        "popularity": round(movie.get("popularity", 0), 2),
+                        "genre_ids": ",".join(str(g) for g in movie.get("genre_ids", [])),
+                        "original_language": movie.get("original_language"),
+                        "overview": movie.get("overview", "")[:100],  # Truncate long overviews
+                        "tmdb_id": movie.get("id"),
+                    }
+                )
+
+            total_pages = data.get("total_pages", 1)
+            if params["page"] >= total_pages:
+                break
+
+            params["page"] += 1
+
+    except requests.RequestException as exc:
+        return f"Error: Failed to fetch trending movies from TMDB: {exc}"
+
+    return to_tsv(all_movies)
