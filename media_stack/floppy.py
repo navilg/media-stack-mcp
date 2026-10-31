@@ -5,8 +5,10 @@ import requests
 
 from media_stack.config import get_floppy_config
 from media_stack.formatting import to_tsv
+from media_stack.logging_util import log_tool_call
 
 
+@log_tool_call
 def get_floppy_movie_details(media_id: str, source: str = "tmdb") -> dict:
     """Get movie details from Floppy; return a dict with an `error` field on failure."""
     config = get_floppy_config()
@@ -37,11 +39,13 @@ def get_floppy_movie_details(media_id: str, source: str = "tmdb") -> dict:
         return {"error": "Error: Invalid response from Floppy"}
 
 
+@log_tool_call
 def get_floppy_watched_movies(days: int = 30, limit: int = 200) -> str:
     """List completed Floppy movie history from the last `days` as TSV (limit 1-200; errors as strings)."""
     return _get_floppy_watched_history(days, limit, "movie", "movies")
 
 
+@log_tool_call
 def get_floppy_watched_tv_seasons(days: int = 30, limit: int = 200) -> str:
     """Group completed TV episodes from the last `days` by season as TSV, with watched/total counts and latest date; limit 1-200."""
     if days <= 0:
@@ -209,6 +213,7 @@ def _get_floppy_watched_history(days: int, limit: int, media_type: str, label: s
     return to_tsv(watched_items)
 
 
+@log_tool_call
 def get_floppy_liked_movies(
         threshold_user_rating: int = 7,
         days: int = 30,
@@ -277,6 +282,8 @@ def get_floppy_liked_movies(
 
     return to_tsv(movies)
 
+
+@log_tool_call
 def get_floppy_liked_tv_seasons(
         threshold_user_rating: int = 8,
         days: int = 30,
@@ -345,6 +352,8 @@ def get_floppy_liked_tv_seasons(
 
     return to_tsv(seasons)
 
+
+@log_tool_call
 def get_floppy_disliked_movies(
         threshold_user_rating: int = 6,
         days: int = 30,
@@ -414,6 +423,7 @@ def get_floppy_disliked_movies(
     return to_tsv(movies)
 
 
+@log_tool_call
 def get_floppy_disliked_tv_seasons(
         threshold_user_rating: int = 7,
         days: int = 30,
@@ -482,6 +492,8 @@ def get_floppy_disliked_tv_seasons(
 
     return to_tsv(seasons)
 
+
+@log_tool_call
 def get_floppy_trending_movies() -> str:
     """List up to 20 trending Floppy movies as TSV; errors as strings."""
     limit = 20
@@ -535,6 +547,8 @@ def get_floppy_trending_movies() -> str:
 
     return to_tsv(movies)
 
+
+@log_tool_call
 def search_floppy_movie_by_title(title: str, limit: int = 5) -> str:
     """Search Floppy movies by title; return TSV (default limit 5, errors as strings)."""
     config = get_floppy_config()
@@ -581,6 +595,8 @@ def search_floppy_movie_by_title(title: str, limit: int = 5) -> str:
 
     return to_tsv(movies)
 
+
+@log_tool_call
 def search_floppy_tv_show_by_title(title: str, limit: int = 5) -> str:
     """Search Floppy TV shows by title; return TSV (default limit 5, errors as strings)."""
     config = get_floppy_config()
@@ -627,6 +643,8 @@ def search_floppy_tv_show_by_title(title: str, limit: int = 5) -> str:
 
     return to_tsv(shows)
 
+
+@log_tool_call
 def get_floppy_tv_show_details(media_id: str, source: str = "tmdb") -> dict:
     """Get TV show details from Floppy; return a dict with an `error` field on failure."""
     config = get_floppy_config()
@@ -656,6 +674,8 @@ def get_floppy_tv_show_details(media_id: str, source: str = "tmdb") -> dict:
     except (KeyError, TypeError, ValueError, AttributeError):
         return {"error": "Error: Invalid response from Floppy"}
 
+
+@log_tool_call
 def get_floppy_top_picks_movie(limit: int = 10) -> str:
     """List Floppy movie recommendations as TSV (default limit 10; errors as strings)."""
     config = get_floppy_config()

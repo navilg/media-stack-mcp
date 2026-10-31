@@ -3,8 +3,10 @@ import requests
 from media_stack.config import get_radarr_config
 from media_stack.filters import normalize_library_filter
 from media_stack.formatting import to_tsv
+from media_stack.logging_util import log_tool_call
 
 
+@log_tool_call
 def get_radarr_movies(
     full_details: bool = False,
     title: str | None = None,
@@ -103,6 +105,7 @@ def get_radarr_movies(
     return to_tsv(movies)
 
 
+@log_tool_call
 def get_radarr_quality_profiles() -> str:
     """List Radarr quality profiles as TSV; errors as strings."""
     radarr_config = get_radarr_config()
@@ -136,6 +139,7 @@ def get_radarr_quality_profiles() -> str:
     return to_tsv(quality_profiles)
 
 
+@log_tool_call
 def get_radarr_root_folders() -> str:
     """List Radarr root folders as TSV; errors as strings."""
     radarr_config = get_radarr_config()
@@ -169,6 +173,7 @@ def get_radarr_root_folders() -> str:
     return to_tsv(root_folders)
 
 
+@log_tool_call
 def add_radarr_movie(movie_query: str, root_folder_path: str, quality_profile_id: int) -> str:
     """Find and add a movie to Radarr with the selected root folder/profile; errors as strings."""
     if not movie_query or not movie_query.strip():
@@ -236,6 +241,7 @@ def add_radarr_movie(movie_query: str, root_folder_path: str, quality_profile_id
     return f"Added Radarr movie '{added_title}' at '{added_path}' with quality profile {quality_profile_id}"
 
 
+@log_tool_call
 def delete_radarr_movie(movie_query: str, delete_files: bool = True) -> str:
     """Remove a movie from Radarr and exclude it from import lists.
     `delete_files` (default true) also removes media files. Errors as strings.
@@ -299,6 +305,7 @@ def delete_radarr_movie(movie_query: str, delete_files: bool = True) -> str:
     return f"Deleted Radarr movie '{movie_title}' (delete_files={delete_files})"
 
 
+@log_tool_call
 def get_radarr_current_downloads() -> str:
     """List current Radarr downloads and progress as TSV; errors as strings."""
     radarr_config = get_radarr_config()

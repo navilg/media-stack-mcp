@@ -1,4 +1,5 @@
 import os
+import sys
 import time
 from datetime import datetime, timedelta, timezone
 
@@ -6,6 +7,7 @@ import requests
 
 from media_stack.constants import TMDB_API_BASE
 from media_stack.formatting import to_tsv
+from media_stack.logging_util import log_tool_call
 
 
 def _get_tmdb_headers() -> dict[str, str] | str:
@@ -55,14 +57,16 @@ def _get_latest_season_air_date(show_id: int, headers: dict, max_retries: int = 
             
             return None
             
-        except (requests.RequestException, ValueError):
+        except (requests.RequestException, ValueError) as exc:
             retry_count += 1
+            print(f"Error fetching latest season air date (attempt {retry_count}/{max_retries}): {exc}", file=sys.stderr)
             if retry_count >= max_retries:
                 return None
             delay = base_delay * (2 ** (retry_count - 1))
             time.sleep(delay)
 
 
+@log_tool_call
 def get_tmdb_latest_high_rated_movies(
     days: int = 30,
     threshold_rating: float = 7,
@@ -111,6 +115,7 @@ def get_tmdb_latest_high_rated_movies(
                     break
                 except (requests.RequestException, ValueError) as exc:
                     retry_count += 1
+                    print(f"Error fetching latest high-rated movies (attempt {retry_count}/{max_retries}): {exc}", file=sys.stderr)
                     if retry_count >= max_retries:
                         return f"Error: Failed to fetch latest movies from TMDB after {max_retries} retries: {exc}"
                     delay = base_delay * (2 ** (retry_count - 1))
@@ -145,11 +150,13 @@ def get_tmdb_latest_high_rated_movies(
             params["page"] += 1
 
     except requests.RequestException as exc:
+        print(f"Error fetching latest high-rated movies: {exc}", file=sys.stderr)
         return f"Error: Failed to fetch latest movies from TMDB: {exc}"
 
     return to_tsv(all_movies)
 
 
+@log_tool_call
 def get_tmdb_latest_high_rated_shows(
     days: int = 30,
     threshold_rating: float = 7,
@@ -203,6 +210,7 @@ def get_tmdb_latest_high_rated_shows(
                     break
                 except (requests.RequestException, ValueError) as exc:
                     retry_count += 1
+                    print(f"Error fetching latest high-rated shows (attempt {retry_count}/{max_retries}): {exc}", file=sys.stderr)
                     if retry_count >= max_retries:
                         return f"Error: Failed to fetch latest shows from TMDB after {max_retries} retries: {exc}"
                     delay = base_delay * (2 ** (retry_count - 1))
@@ -245,11 +253,13 @@ def get_tmdb_latest_high_rated_shows(
             params["page"] += 1
 
     except requests.RequestException as exc:
+        print(f"Error fetching latest high-rated shows: {exc}", file=sys.stderr)
         return f"Error: Failed to fetch latest shows from TMDB: {exc}"
 
     return to_tsv(all_shows)
 
 
+@log_tool_call
 def get_tmdb_trending_movies(
     limit: int = 50,
     time_window: str = "week",
@@ -292,6 +302,7 @@ def get_tmdb_trending_movies(
                     break
                 except (requests.RequestException, ValueError) as exc:
                     retry_count += 1
+                    print(f"Error fetching trending movies (attempt {retry_count}/{max_retries}): {exc}", file=sys.stderr)
                     if retry_count >= max_retries:
                         return f"Error: Failed to fetch trending movies from TMDB after {max_retries} retries: {exc}"
                     delay = base_delay * (2 ** (retry_count - 1))
@@ -326,11 +337,13 @@ def get_tmdb_trending_movies(
             params["page"] += 1
 
     except requests.RequestException as exc:
+        print(f"Error fetching trending movies: {exc}", file=sys.stderr)
         return f"Error: Failed to fetch trending movies from TMDB: {exc}"
 
     return to_tsv(all_movies)
 
 
+@log_tool_call
 def get_tmdb_trending_shows(
     limit: int = 50,
     time_window: str = "week",
@@ -373,6 +386,7 @@ def get_tmdb_trending_shows(
                     break
                 except (requests.RequestException, ValueError) as exc:
                     retry_count += 1
+                    print(f"Error fetching trending shows (attempt {retry_count}/{max_retries}): {exc}", file=sys.stderr)
                     if retry_count >= max_retries:
                         return f"Error: Failed to fetch trending shows from TMDB after {max_retries} retries: {exc}"
                     delay = base_delay * (2 ** (retry_count - 1))
@@ -415,6 +429,7 @@ def get_tmdb_trending_shows(
             params["page"] += 1
 
     except requests.RequestException as exc:
+        print(f"Error fetching trending shows: {exc}", file=sys.stderr)
         return f"Error: Failed to fetch trending shows from TMDB: {exc}"
 
     return to_tsv(all_shows)

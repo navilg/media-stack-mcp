@@ -6,6 +6,7 @@ import requests
 
 from media_stack.constants import TRAKT_API_BASE
 from media_stack.formatting import to_tsv
+from media_stack.logging_util import log_tool_call
 
 
 def _resolve_username(username: str | None) -> str | None:
@@ -24,6 +25,7 @@ def _get_trakt_headers() -> dict[str, str] | str:
     }
 
 
+@log_tool_call
 def check_trakt_profile_privacy(username: str | None = None) -> str:
     """Check Trakt profile visibility (`username` defaults to `TRAKT_USERNAME`); errors as strings."""
     username = _resolve_username(username)
@@ -81,6 +83,7 @@ def check_trakt_profile_privacy(username: str | None = None) -> str:
     return f"Error: Unexpected error. Status code: {history_response.status_code}"
 
 
+@log_tool_call
 def get_trakt_public_watched_movies(username: str | None = None, days: int = 30) -> str:
     """List public-profile movies watched within `days` as TSV (`days` > 0; errors as strings)."""
     username = _resolve_username(username)
@@ -150,6 +153,7 @@ def get_trakt_public_watched_movies(username: str | None = None, days: int = 30)
     return to_tsv(watched_movies)
 
 
+@log_tool_call
 def get_trakt_public_watched_shows(username: str | None = None, days: int = 30) -> str:
     """List public-profile episodes watched within `days` as TSV (`days` > 0; errors as strings)."""
     username = _resolve_username(username)
@@ -268,6 +272,7 @@ def get_trakt_public_watched_shows(username: str | None = None, days: int = 30) 
     return to_tsv(watched_shows)
 
 
+@log_tool_call
 def get_trakt_public_liked_movies(
     username: str | None = None,
     threshold_user_rating: int = 7,
@@ -313,6 +318,7 @@ def get_trakt_public_liked_movies(
     return to_tsv(liked_movies)
 
 
+@log_tool_call
 def get_trakt_public_liked_shows(
     username: str | None = None,
     threshold_user_rating: float = 7.5,
@@ -453,6 +459,7 @@ def get_trakt_public_liked_shows(
     return to_tsv(liked_shows[:limit])
 
 
+@log_tool_call
 def get_trakt_public_disliked_movies(
     username: str | None = None,
     threshold_user_rating: int = 6,
@@ -498,6 +505,7 @@ def get_trakt_public_disliked_movies(
     return to_tsv(disliked_movies)
 
 
+@log_tool_call
 def get_trakt_latest_high_rated_movies(
     days: int = 30,
     threshold_rating: float = 7,
@@ -548,6 +556,7 @@ def get_trakt_latest_high_rated_movies(
     return to_tsv(latest_movies)
 
 
+@log_tool_call
 def get_trakt_latest_high_rated_shows(
     days: int = 30,
     threshold_rating: float = 7.5,
@@ -600,6 +609,7 @@ def get_trakt_latest_high_rated_shows(
     return to_tsv(latest_shows)
 
 
+@log_tool_call
 def get_trakt_popular_shows(limit: int = 50) -> str:
     """List popular Trakt shows as TSV; errors as strings."""
     headers = _get_trakt_headers()
@@ -638,6 +648,7 @@ def get_trakt_popular_shows(limit: int = 50) -> str:
     return to_tsv(popular_shows)
 
 
+@log_tool_call
 def get_trakt_trending_movies() -> str:
     """List up to 20 trending Trakt movies as TSV; errors as strings."""
     headers = _get_trakt_headers()
@@ -680,6 +691,7 @@ def get_trakt_trending_movies() -> str:
     return to_tsv(trending_movies)
 
 
+@log_tool_call
 def get_trakt_trending_shows() -> str:
     """List up to 20 trending Trakt shows as TSV; errors as strings."""
     headers = _get_trakt_headers()
@@ -723,6 +735,7 @@ def get_trakt_trending_shows() -> str:
     return to_tsv(trending_shows)
 
 
+@log_tool_call
 def get_trakt_popular_movies(limit: int = 50) -> str:
     """List popular Trakt movies as TSV; errors as strings."""
     headers = _get_trakt_headers()
@@ -760,6 +773,7 @@ def get_trakt_popular_movies(limit: int = 50) -> str:
     return to_tsv(popular_movies)
 
 
+@log_tool_call
 def search_trakt_movie_by_title(title: str, limit: int = 5) -> str:
     """Search Trakt movies by title; TSV matches (title required, limit > 0), errors as strings."""
     headers = _get_trakt_headers()
@@ -810,6 +824,7 @@ def search_trakt_movie_by_title(title: str, limit: int = 5) -> str:
     return to_tsv(matched_movies)
 
 
+@log_tool_call
 def search_trakt_show_by_title(title: str, limit: int = 5) -> str:
     """Search Trakt shows by title; TSV matches (title required, limit > 0), errors as strings."""
     headers = _get_trakt_headers()

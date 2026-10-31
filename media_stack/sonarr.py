@@ -3,8 +3,10 @@ import requests
 from media_stack.config import get_sonarr_config
 from media_stack.filters import normalize_library_filter
 from media_stack.formatting import to_tsv
+from media_stack.logging_util import log_tool_call
 
 
+@log_tool_call
 def get_sonarr_shows(
     full_details: bool = False,
     title: str | None = None,
@@ -106,6 +108,7 @@ def get_sonarr_shows(
     return to_tsv(series_rows)
 
 
+@log_tool_call
 def get_sonarr_quality_profiles() -> str:
     """List Sonarr quality profiles as TSV; errors as strings."""
     sonarr_config = get_sonarr_config()
@@ -139,6 +142,7 @@ def get_sonarr_quality_profiles() -> str:
     return to_tsv(quality_profiles)
 
 
+@log_tool_call
 def get_sonarr_root_folders() -> str:
     """List Sonarr root folders as TSV; errors as strings."""
     sonarr_config = get_sonarr_config()
@@ -172,6 +176,7 @@ def get_sonarr_root_folders() -> str:
     return to_tsv(root_folders)
 
 
+@log_tool_call
 def add_sonarr_show(
     show_query: str,
     root_folder_path: str,
@@ -264,6 +269,7 @@ def add_sonarr_show(
     )
 
 
+@log_tool_call
 def delete_sonarr_show(show_query: str, delete_files: bool = True) -> str:
     """Remove a series from Sonarr and exclude it from import lists.
     `delete_files` (default true) also removes media files. Errors as strings.
@@ -327,6 +333,7 @@ def delete_sonarr_show(show_query: str, delete_files: bool = True) -> str:
     return f"Deleted Sonarr show '{series_title}' (delete_files={delete_files})"
 
 
+@log_tool_call
 def get_sonarr_current_downloads() -> str:
     """List current Sonarr downloads and progress as TSV; errors as strings."""
     sonarr_config = get_sonarr_config()
