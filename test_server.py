@@ -385,7 +385,7 @@ def test_get_floppy_watched_tv_seasons_validation_errors():
 
 
 def test_get_floppy_watched_history():
-    """Movie and season history share date, status, and TSV behavior."""
+    """Movie history retains date, status, and TSV behavior."""
     from datetime import datetime, timezone
 
     now = datetime(2026, 10, 30, 12, tzinfo=timezone.utc)
@@ -411,7 +411,6 @@ def test_get_floppy_watched_history():
     ]
     for tool, media_type in (
         (server.get_floppy_watched_movies, "movie"),
-        (server.get_floppy_watched_tv_seasons, "season"),
     ):
         with (
             patch("media_stack.floppy.get_floppy_config", return_value=("http://floppy", "test")),
@@ -445,6 +444,170 @@ def test_get_floppy_watched_history():
             get.return_value.json.return_value = {"results": [{"status": "watching"}]}
             assert tool(limit=1) == "Empty list"
             assert get.call_args.kwargs["params"]["limit"] == 1
+
+
+def _floppy_episode(show_id="288673", title="Carrie", season=1, episode=8,
+                    played_at="2026-10-29T18:58:00Z"):
+    return {
+        "media_type": "episode",
+        "item": {
+            "media_type": "episode", "source": "tmdb", "media_id": show_id,
+            "title": "Episode title", "season_number": season, "episode_number": episode,
+        },
+        "show": {"id": 4707, "title": title},
+        "display_title": "Episode title",
+        "season_number": season,
+        "episode_number": episode,
+        "status": "Completed",
+        "played_at_local": played_at,
+    }
+
+
+def test_get_floppy_watched_tv_seasons_grouping():
+    """The supplied TV history shape produces two season summaries, not episode titles."""
+    from datetime import datetime, timezone
+
+    entries = [
+        _floppy_episode(episode=episode, played_at=f"2026-10-{21 + episode:02d}T18:58:00Z")
+        for episode in range(8, 0, -1)
+    ] + [
+        _floppy_episode("249755", "Dupahiya", 2, episode, "2026-10-10T20:03:40Z")
+        for episode in range(8, 0, -1)
+    ]
+    with (
+        patch("media_stack.floppy.get_floppy_config", return_value=("http://floppy", "test")),
+        patch("media_stack.floppy.requests.get") as get,
+        patch("media_stack.floppy.datetime", wraps=datetime) as clock,
+    ):
+        history_params = []
+
+        def capture_request(url, **kwargs):
+            if url.endswith("/history/"):
+                history_params.append(dict(kwargs["params"]))
+            return get.return_value
+
+        clock.now.return_value = datetime(2026, 10, 31, tzinfo=timezone.utc)
+        get.side_effect = capture_request
+        get.return_value.json.side_effect = [
+            {"results": entries, "pagination": {"total": 16}},
+            {"max_progress": 8}, {"max_progress": 10},
+        ]
+        assert server.get_floppy_watched_tv_seasons() == (
+            "title\tseason_number\twatched_episode_count\ttotal_episode_count\tlatest_watched_at\n"
+            "Carrie\t1\t8\t8\t2026-10-29T18:58:00Z\n"
+            "Dupahiya\t2\t8\t10\t2026-10-10T20:03:40Z"
+        )
+        assert get.call_args_list[0].args == ("http://floppy/api/v1/history/",)
+        assert history_params == [{
+            "flat": "1", "media_type": "tv", "start_date": "2026-10-01",
+            "end_date": "2026-10-31", "limit": 200, "offset": 0,
+        }]
+        assert get.call_args_list[1].args == ("http://floppy/api/v1/media/tv/tmdb/288673/1/",)
+        assert get.call_args_list[2].args == ("http://floppy/api/v1/media/tv/tmdb/249755/2/",)
+        for call in get.call_args_list:
+            assert call.kwargs["headers"] == {"X-API-Key": "test"}
+            assert call.kwargs["timeout"] == 20
+
+
+def test_get_floppy_watched_tv_seasons_pagination():
+    """Count distinct episodes across pages and order timestamps by instant, then cap seasons."""
+    in_progress = _floppy_episode(episode=3)
+    in_progress["status"] = "Watching"
+    other_type = _floppy_episode(episode=4)
+    other_type["media_type"] = "movie"
+    pages = [
+        [
+            _floppy_episode(episode=8, played_at="2026-10-29T18:58:00Z"),
+            _floppy_episode("other", "Carrie", 1, 1, "2026-10-28T18:58:00Z"),
+            _floppy_episode(season=0, episode=1, played_at="2026-10-27T18:58:00Z"),
+            in_progress, other_type,
+        ],
+        [
+            _floppy_episode(episode=8, played_at="2026-10-29T20:58:00+02:00"),
+            _floppy_episode(episode=7, played_at="2026-10-29T14:00:00-05:00"),
+        ],
+    ]
+    for limit, expected_rows in (
+        (1, ["Carrie\t1\t2\t8\t2026-10-29T14:00:00-05:00"]),
+        (3, [
+            "Carrie\t1\t2\t8\t2026-10-29T14:00:00-05:00",
+            "Carrie\t1\t1\t8\t2026-10-28T18:58:00Z",
+            "Carrie\t0\t1\t8\t2026-10-27T18:58:00Z",
+        ]),
+    ):
+        offsets = []
+
+        def history_or_details(url, **kwargs):
+            if url.endswith("/history/"):
+                offsets.append(kwargs["params"]["offset"])
+                get.return_value.json.return_value = {
+                    "results": pages[len(offsets) - 1], "pagination": {"total": 7},
+                }
+            else:
+                get.return_value.json.return_value = {"max_progress": 8}
+            return get.return_value
+
+        with (
+            patch("media_stack.floppy.get_floppy_config", return_value=("http://floppy", "test")),
+            patch("media_stack.floppy.requests.get") as get,
+        ):
+            get.side_effect = history_or_details
+            result = server.get_floppy_watched_tv_seasons(limit=limit)
+            assert result.splitlines()[1:] == expected_rows
+            assert offsets == [0, 5]
+            assert get.call_count == 2 + limit
+
+
+def test_get_floppy_watched_tv_seasons_empty_and_invalid():
+    missing_season = _floppy_episode()
+    missing_season.pop("season_number")
+    missing_season["item"].pop("season_number")
+    missing_show = _floppy_episode()
+    missing_show.pop("show")
+    invalid_date = _floppy_episode(played_at="not-a-date")
+    naive_date = _floppy_episode(played_at="2026-10-29T18:58:00")
+    invalid_episode = _floppy_episode(episode=True)
+    for entries, expected in (
+        ([], "Empty list"),
+        ([{"status": "Watching"}], "Empty list"),
+        ([missing_season], "Error: Invalid response from Floppy"),
+        ([missing_show], "Error: Invalid response from Floppy"),
+        ([invalid_date], "Error: Invalid response from Floppy"),
+        ([naive_date], "Error: Invalid response from Floppy"),
+        ([invalid_episode], "Error: Invalid response from Floppy"),
+    ):
+        with (
+            patch("media_stack.floppy.get_floppy_config", return_value=("http://floppy", "test")),
+            patch("media_stack.floppy.requests.get") as get,
+        ):
+            get.return_value.json.return_value = {
+                "results": entries, "pagination": {"total": len(entries)},
+            }
+            assert server.get_floppy_watched_tv_seasons() == expected
+            get.assert_called_once()
+
+
+def test_get_floppy_watched_tv_seasons_details_errors():
+    for details in ({}, {"max_progress": None}, {"max_progress": -1}, {"max_progress": True}):
+        with (
+            patch("media_stack.floppy.get_floppy_config", return_value=("http://floppy", "test")),
+            patch("media_stack.floppy.requests.get") as get,
+        ):
+            get.return_value.json.side_effect = [
+                {"results": [_floppy_episode()], "pagination": {"total": 1}}, details,
+            ]
+            assert server.get_floppy_watched_tv_seasons() == "Error: Invalid response from Floppy"
+    with (
+        patch("media_stack.floppy.get_floppy_config", return_value=("http://floppy", "test")),
+        patch("media_stack.floppy.requests.get") as get,
+    ):
+        get.return_value.json.return_value = {
+            "results": [_floppy_episode()], "pagination": {"total": 1},
+        }
+        get.return_value.raise_for_status.side_effect = [None, RequestException("Unavailable")]
+        assert server.get_floppy_watched_tv_seasons() == (
+            "Error: Failed to fetch watched TV seasons from Floppy: Unavailable"
+        )
 
 
 def test_get_floppy_watched_history_errors():
@@ -482,11 +645,11 @@ def test_get_floppy_watched_tv_seasons_tool_schema():
                 patch("media_stack.floppy.get_floppy_config", return_value=("http://floppy", "test")),
                 patch("media_stack.floppy.requests.get") as get,
             ):
-                get.return_value.json.return_value = {"results": []}
+                get.return_value.json.return_value = {"results": [], "pagination": {"total": 0}}
                 result = await client.call_tool("get_floppy_watched_tv_seasons", {})
                 assert not result.is_error
                 assert result.content[0].text == "Empty list"
-                assert get.call_args.kwargs["params"]["media_type"] == "season"
+                assert get.call_args.kwargs["params"]["media_type"] == "tv"
 
     asyncio.run(check_schema())
 
@@ -1284,6 +1447,10 @@ if __name__ == "__main__":
         test_get_floppy_popular_movies_validation_errors,
         test_get_floppy_watched_movies_validation_errors,
         test_get_floppy_watched_tv_seasons_validation_errors,
+        test_get_floppy_watched_tv_seasons_grouping,
+        test_get_floppy_watched_tv_seasons_pagination,
+        test_get_floppy_watched_tv_seasons_empty_and_invalid,
+        test_get_floppy_watched_tv_seasons_details_errors,
         test_get_floppy_watched_history,
         test_get_floppy_watched_history_errors,
         test_get_floppy_watched_tv_seasons_tool_schema,

@@ -1,4 +1,5 @@
 from datetime import datetime, timedelta, timezone
+from urllib.parse import quote
 
 import requests
 
@@ -42,8 +43,112 @@ def get_floppy_watched_movies(days: int = 30, limit: int = 200) -> str:
 
 
 def get_floppy_watched_tv_seasons(days: int = 30, limit: int = 200) -> str:
-    """List completed Floppy TV season history from the last `days` as TSV (limit 1-200; errors as strings)."""
-    return _get_floppy_watched_history(days, limit, "season", "TV seasons")
+    """Group completed TV episodes from the last `days` by season as TSV, with watched/total counts and latest date; limit 1-200."""
+    if days <= 0:
+        return "Error: days must be greater than 0"
+    if limit <= 0 or limit > 200:
+        return "Error: limit must be between 1 and 200"
+
+    config = get_floppy_config()
+    if isinstance(config, str):
+        return config
+    floppy_url, api_key = config
+    now_utc = datetime.now(timezone.utc)
+    params = {
+        "flat": "1",
+        "media_type": "tv",
+        "start_date": (now_utc - timedelta(days=days)).date().isoformat(),
+        "end_date": now_utc.date().isoformat(),
+        "limit": 200,
+        "offset": 0,
+    }
+    groups: dict[tuple[str, str, int], dict] = {}
+    watched: dict[tuple[str, str, int], set[int]] = {}
+    latest_dates: dict[tuple[str, str, int], datetime] = {}
+
+    try:
+        while True:
+            response = requests.get(
+                f"{floppy_url}/api/v1/history/",
+                params=params,
+                headers={"X-API-Key": api_key},
+                timeout=20,
+            )
+            response.raise_for_status()
+            payload = response.json()
+            entries = payload["results"]
+            total = payload["pagination"]["total"]
+            if not isinstance(entries, list) or type(total) is not int or total < 0:
+                return "Error: Invalid response from Floppy"
+            if not entries and params["offset"] < total:
+                return "Error: Invalid response from Floppy"
+            for entry in entries:
+                status = entry.get("status")
+                if not (
+                    status == 3
+                    or isinstance(status, str) and status.strip().casefold() == "completed"
+                ):
+                    continue
+                item = entry["item"]
+                if entry.get("media_type", item.get("media_type")) != "episode":
+                    continue
+                source, media_id = item["source"], item["media_id"]
+                title = entry["show"]["title"]
+                season = entry.get("season_number", item.get("season_number"))
+                episode = entry.get("episode_number", item.get("episode_number"))
+                played_at = entry["played_at_local"]
+                if (
+                    not isinstance(source, str) or not source.strip()
+                    or not isinstance(media_id, str) or not media_id.strip()
+                    or not isinstance(title, str) or not title.strip()
+                    or type(season) is not int or season < 0
+                    or type(episode) is not int or episode < 1
+                    or not isinstance(played_at, str)
+                ):
+                    return "Error: Invalid response from Floppy"
+                date = datetime.fromisoformat(played_at.replace("Z", "+00:00"))
+                if date.tzinfo is None:
+                    return "Error: Invalid response from Floppy"
+                key = (source, media_id, season)
+                if key not in groups:
+                    groups[key] = {
+                        "title": title,
+                        "season_number": season,
+                        "watched_episode_count": 0,
+                        "total_episode_count": 0,
+                        "latest_watched_at": played_at,
+                    }
+                    watched[key] = set()
+                    latest_dates[key] = date
+                watched[key].add(episode)
+                groups[key]["watched_episode_count"] = len(watched[key])
+                if date > latest_dates[key]:
+                    latest_dates[key] = date
+                    groups[key]["latest_watched_at"] = played_at
+            params["offset"] += len(entries)
+            if not entries or params["offset"] >= total:
+                break
+
+        rows = []
+        for key in sorted(groups, key=lambda key: latest_dates[key], reverse=True)[:limit]:
+            source, media_id, season = key
+            response = requests.get(
+                f"{floppy_url}/api/v1/media/tv/{quote(source, safe='')}/{quote(media_id, safe='')}/{season}/",
+                headers={"X-API-Key": api_key},
+                timeout=20,
+            )
+            response.raise_for_status()
+            total_episodes = response.json()["max_progress"]
+            if type(total_episodes) is not int or total_episodes < 0:
+                return "Error: Invalid response from Floppy"
+            groups[key]["total_episode_count"] = total_episodes
+            rows.append(groups[key])
+    except requests.RequestException as exc:
+        return f"Error: Failed to fetch watched TV seasons from Floppy: {exc}"
+    except (KeyError, TypeError, ValueError, AttributeError):
+        return "Error: Invalid response from Floppy"
+
+    return to_tsv(rows)
 
 
 def _get_floppy_watched_history(days: int, limit: int, media_type: str, label: str) -> str:
