@@ -329,3 +329,92 @@ def get_tmdb_trending_movies(
         return f"Error: Failed to fetch trending movies from TMDB: {exc}"
 
     return to_tsv(all_movies)
+
+
+def get_tmdb_trending_shows(
+    limit: int = 50,
+    time_window: str = "week",
+) -> str:
+    """List trending TMDB TV shows by latest season air date as TSV.
+    
+    Loops through paginated results until reaching the total limit or exhausting all pages.
+    Retries up to 10 times on transient failures with exponential backoff.
+    
+    Args:
+        limit: Maximum number of shows to return (default 50)
+        time_window: Time window for trending (day or week; default week)
+    """
+    headers = _get_tmdb_headers()
+
+    if isinstance(headers, str):
+        return headers
+    if limit <= 0:
+        return "Error: limit must be greater than 0"
+    if time_window not in ("day", "week"):
+        return "Error: time_window must be 'day' or 'week'"
+
+    endpoint = f"{TMDB_API_BASE}/trending/tv/{time_window}"
+    params = {
+        "page": 1,
+    }
+
+    all_shows: list[dict] = []
+    max_retries = 10
+    base_delay = 1  # Start with 1 second
+
+    try:
+        while len(all_shows) < limit:
+            retry_count = 0
+            while retry_count < max_retries:
+                try:
+                    response = requests.get(endpoint, params=params, headers=headers, timeout=20)
+                    response.raise_for_status()
+                    data = response.json()
+                    break
+                except (requests.RequestException, ValueError) as exc:
+                    retry_count += 1
+                    if retry_count >= max_retries:
+                        return f"Error: Failed to fetch trending shows from TMDB after {max_retries} retries: {exc}"
+                    delay = base_delay * (2 ** (retry_count - 1))
+                    time.sleep(delay)
+
+            shows_data = data.get("results", [])
+            if not shows_data:
+                break
+
+            for show in shows_data:
+                if len(all_shows) >= limit:
+                    break
+
+                show_id = show.get("id")
+
+                # Always fetch latest season air date
+                season_air_date = _get_latest_season_air_date(show_id, headers, max_retries, base_delay)
+                if not season_air_date:
+                    # If we can't fetch season info, skip this show
+                    continue
+
+                all_shows.append(
+                    {
+                        "name": show.get("name"),
+                        "latest_air_date": season_air_date,
+                        "average_rating": round(show.get("vote_average", 0), 2),
+                        "vote_count": show.get("vote_count"),
+                        "popularity": round(show.get("popularity", 0), 2),
+                        "genre_ids": ",".join(str(g) for g in show.get("genre_ids", [])),
+                        "original_language": show.get("original_language"),
+                        "overview": show.get("overview", "")[:100],  # Truncate long overviews
+                        "tmdb_id": show_id,
+                    }
+                )
+
+            total_pages = data.get("total_pages", 1)
+            if params["page"] >= total_pages:
+                break
+
+            params["page"] += 1
+
+    except requests.RequestException as exc:
+        return f"Error: Failed to fetch trending shows from TMDB: {exc}"
+
+    return to_tsv(all_shows)
