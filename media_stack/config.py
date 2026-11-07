@@ -3,6 +3,17 @@ import os
 
 from media_stack.constants import VALID_TOOLSETS
 
+def get_media_tracker() -> str:
+    """Get the configured media tracker from TRACKED_MEDIA_SOURCE env var.
+    
+    Defaults to 'floppy' if not set.
+    Valid values: 'floppy' or 'trakt'
+    """
+    tracker = os.getenv("TRACKED_MEDIA_SOURCE", "floppy").lower()
+    if tracker not in ("floppy", "trakt"):
+        raise ValueError(f"Invalid TRACKED_MEDIA_SOURCE: {tracker}. Must be 'floppy' or 'trakt'.")
+    return tracker
+
 
 def get_floppy_config() -> tuple[str, str] | str:
     floppy_url = os.getenv("FLOPPY_URL")

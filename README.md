@@ -4,35 +4,78 @@ FastMCP server that exposes media tools backed by Trakt, Floppy, TMDB, Radarr, a
 
 ## Tools
 
-The server currently exposes these MCP tools:
+### Media Tracker Tools (Trakt & Floppy)
+
+The following tools are always registered and automatically route to the configured media tracker via the `TRACKED_MEDIA_SOURCE` environment variable (defaults to `floppy`):
+
+- `get_watched_movies(days=30, limit=200, username=None)` - List watched movies
+- `get_watched_tv_seasons(days=30, limit=200, username=None)` - List watched TV seasons
+- `get_liked_movies(threshold_user_rating=7, days=30, limit=50, username=None)` - List liked movies
+- `get_liked_tv_seasons(threshold_user_rating=8, days=30, limit=50, username=None)` - List liked TV seasons
+- `get_disliked_movies(days=30, limit=50, username=None)` - List disliked movies
+- `get_disliked_tv_seasons(days=30, limit=50)` - List disliked TV seasons (Floppy only)
+
+**Note:** When using these tools with Trakt, some parameters like `username` are required or have different meanings. For Floppy, `username` is not used. Output formats are automatically adapted based on the backend.
+
+**Configuration:**
+```bash
+# Use Trakt (default is floppy)
+export TRACKED_MEDIA_SOURCE=trakt
+
+# Use Floppy (default)
+export TRACKED_MEDIA_SOURCE=floppy
+```
+
+### Separate Floppy Tools
+
+These tools are specific to Floppy and always available:
+
+- `get_floppy_trending_movies()`
+- `get_floppy_top_picks_movie(limit=50)`
+- `search_floppy_movie_by_title(title, limit=5)`
+- `search_floppy_tv_show_by_title(title, limit=5)`
+- `get_floppy_movie_details(media_id, source=tmdb)`
+- `get_floppy_tv_show_details(media_id, source=tmdb)`
+
+### Separate Trakt Tools
+
+These tools are specific to Trakt and always available:
 
 - `check_trakt_profile_privacy(username=None)`
-- `get_trakt_public_watched_movies(username=None, days=30)`
-- `get_trakt_public_watched_shows(username=None, days=30)`
-- `get_trakt_public_liked_movies(username=None, threshold_user_rating=7, limit=50)`
-- `get_trakt_public_liked_shows(username=None, threshold_user_rating=7, limit=50)`
-- `get_trakt_public_disliked_movies(username=None, threshold_user_rating=6, limit=50)`
 - `get_trakt_latest_high_rated_movies(days=30, threshold_rating=7, limit=50)`
 - `get_trakt_latest_high_rated_shows(days=30, threshold_rating=7, limit=50)`
 - `get_trakt_popular_movies(limit=50)`
 - `get_trakt_popular_shows(limit=50)`
 - `get_trakt_trending_movies(limit=50)`
 - `get_trakt_trending_shows(limit=50)`
+- `get_trakt_public_liked_shows(username=None, threshold_user_rating=7.5, limit=50)`
 - `search_trakt_movie_by_title(title, year=None, limit=5)`
 - `search_trakt_show_by_title(title, year=None, limit=5)`
+
+### TMDB Tools
+
 - `get_tmdb_latest_high_rated_movies(days=30, threshold_rating=7, limit=50)`
 - `get_tmdb_latest_high_rated_shows(days=30, threshold_rating=7, limit=50)`
 - `get_tmdb_trending_movies(limit=50, time_window=week)`
 - `get_tmdb_trending_shows(limit=50, time_window=week)`
-- `get_floppy_watched_movies(days=30, limit=200)`
-- `get_floppy_watched_tv_seasons(days=30, limit=200)`
-- `get_floppy_liked_movies(threshold_user_rating=7, days=30, limit=50)`
-- `get_floppy_liked_tv_seasons(threshold_user_rating=8, days=30, limit=50)`
-- `get_floppy_disliked_movies(threshold_user_rating=6, days=30, limit=50)`
-- `get_floppy_disliked_tv_seasons(threshold_user_rating=7, days=30, limit=50)`
-- `get_floppy_trending_movies()`
-- `search_floppy_movie_by_title(title, limit=5)`
-- `search_floppy_tv_show_by_title(title, limit=5)`
+
+### Radarr Tools
+
+- `get_radarr_movies(full_details=False, title=None, filter=None)`
+- `get_radarr_quality_profiles()`
+- `get_radarr_root_folders()`
+- `add_radarr_movie(movie_query, root_folder_path, quality_profile_id)`
+- `delete_radarr_movie(movie_query, delete_files=True)`
+- `get_radarr_current_downloads()`
+
+### Sonarr Tools
+
+- `get_sonarr_shows(full_details=False, title=None, filter=None)`
+- `get_sonarr_quality_profiles()`
+- `get_sonarr_root_folders()`
+- `add_sonarr_show(show_query, root_folder_path, quality_profile_id, season_number_to_monitor)`
+- `delete_sonarr_show(show_query, delete_files=True)`
+- `get_sonarr_current_downloads()`
 
 `get_tmdb_latest_high_rated_movies()` and `get_tmdb_latest_high_rated_shows()` 
 fetch recent high-rated content from TMDB with automatic retry logic (10 attempts 
@@ -126,6 +169,7 @@ unchanged in both short and full formats.
 ## Environment variables
 
 Set the following as needed:
+- `TRACKED_MEDIA_SOURCE` (media tracker for common tools: `floppy` or `trakt`, defaults to `floppy`)
 
 - `TRAKT_CLIENT_ID` (required for Trakt tools)
 - `TRAKT_USERNAME` (optional default username if `username` tool argument is omitted)
@@ -150,10 +194,33 @@ Run container (port 8000):
 
 ```bash
 docker run --rm -p 8000:8000 \
+  -e TRACKED_MEDIA_SOURCE=floppy \
   -e TRAKT_CLIENT_ID=your_trakt_client_id \
   -e TRAKT_USERNAME=your_trakt_username \
   -e TMDB_API_KEY=your_tmdb_api_token \
   -e DISABLE_TOOLSETS=radarr \
+  --name mcp-media-stack \
+  mcp-media-stack:latest
+```
+
+### Using different media trackers with Docker
+
+Set the `TRACKED_MEDIA_SOURCE` environment variable:
+
+```bash
+# Use Floppy (default)
+docker run --rm -p 8000:8000 \
+  -e TRACKED_MEDIA_SOURCE=floppy \
+  -e FLOPPY_URL=your_floppy_url \
+  -e FLOPPY_API_KEY=your_floppy_api_key \
+  --name mcp-media-stack \
+  mcp-media-stack:latest
+
+# Use Trakt
+docker run --rm -p 8000:8000 \
+  -e TRACKED_MEDIA_SOURCE=trakt \
+  -e TRAKT_CLIENT_ID=your_trakt_client_id \
+  -e TRAKT_USERNAME=your_trakt_username \
   --name mcp-media-stack \
   mcp-media-stack:latest
 ```
@@ -216,6 +283,18 @@ docker run --rm -p 8000:8000 \
 ```bash
 python -m pip install -r requirements.txt
 python server.py --host 0.0.0.0 --port 8000 --transport streamable-http
+```
+
+### Using different media trackers
+
+To use a different media tracker, set the `TRACKED_MEDIA_SOURCE` environment variable:
+
+```bash
+# Use Floppy (default)
+TRACKED_MEDIA_SOURCE=floppy python server.py --host 0.0.0.0 --port 8000 --transport streamable-http
+
+# Use Trakt
+TRACKED_MEDIA_SOURCE=trakt python server.py --host 0.0.0.0 --port 8000 --transport streamable-http
 ```
 
 ## SSE mode

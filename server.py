@@ -9,6 +9,7 @@ from media_stack.config import (
     compute_tags_to_disable as _compute_tags_to_disable,
     get_radarr_config as _get_radarr_config,
     parse_toolsets as _parse_toolsets,
+    get_media_tracker as _get_media_tracker,
 )
 from media_stack.constants import VALID_TOOLSETS
 from media_stack.floppy import (
@@ -64,6 +65,14 @@ from media_stack.trakt import (
     search_trakt_movie_by_title,
     search_trakt_show_by_title,
 )
+from media_stack.media_tracker import (
+    get_watched_movies,
+    get_watched_tv_seasons,
+    get_liked_movies,
+    get_liked_tv_seasons,
+    get_disliked_movies,
+    get_disliked_tv_seasons,
+)
 
 
 def _create_mcp(use_auth: bool = True) -> FastMCP:
@@ -89,13 +98,20 @@ def _register_tools(mcp: FastMCP) -> None:
         mcp: FastMCP instance to register tools with
     """
 
+    # Always register media tracker tools
+    media_tracker_tools = [
+        get_watched_movies,
+        get_watched_tv_seasons,
+        get_liked_movies,
+        get_liked_tv_seasons,
+        get_disliked_movies,
+        get_disliked_tv_seasons,
+    ]
+    for tool in media_tracker_tools:
+        mcp.tool(tags={"media_tracker"})(tool)
+
+    # Floppy tools (excluding those merged to media_tracker)
     floppy_tools = [
-        get_floppy_watched_movies,
-        get_floppy_watched_tv_seasons,
-        get_floppy_liked_movies,
-        get_floppy_liked_tv_seasons,
-        get_floppy_disliked_movies,
-        get_floppy_disliked_tv_seasons,
         get_floppy_trending_movies,
         get_floppy_top_picks_movie,
         search_floppy_movie_by_title,
@@ -104,15 +120,12 @@ def _register_tools(mcp: FastMCP) -> None:
         get_floppy_tv_show_details,
     ]
 
+    # Trakt tools (excluding those merged to media_tracker)
     trakt_tools = [
         check_trakt_profile_privacy,
-        get_trakt_public_watched_movies,
-        get_trakt_public_watched_shows,
-        get_trakt_public_liked_movies,
-        get_trakt_public_liked_shows,
-        get_trakt_public_disliked_movies,
         get_trakt_latest_high_rated_movies,
         get_trakt_latest_high_rated_shows,
+        get_trakt_public_liked_shows,
         get_trakt_popular_movies,
         get_trakt_popular_shows,
         get_trakt_trending_movies,
@@ -120,6 +133,13 @@ def _register_tools(mcp: FastMCP) -> None:
         search_trakt_movie_by_title,
         search_trakt_show_by_title,
     ]
+
+    for tool in floppy_tools:
+        mcp.tool(tags={"floppy"})(tool)
+
+    for tool in trakt_tools:
+        mcp.tool(tags={"trakt"})(tool)
+
     radarr_tools = [
         get_radarr_movies,
         get_radarr_quality_profiles,
@@ -142,12 +162,6 @@ def _register_tools(mcp: FastMCP) -> None:
         get_tmdb_trending_movies,
         get_tmdb_trending_shows,
     ]
-
-    for tool in floppy_tools:
-        mcp.tool(tags={"floppy"})(tool)
-
-    for tool in trakt_tools:
-        mcp.tool(tags={"trakt"})(tool)
 
     for tool in radarr_tools:
         mcp.tool(tags={"radarr"})(tool)
