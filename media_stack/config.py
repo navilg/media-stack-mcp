@@ -15,6 +15,18 @@ def get_media_tracker() -> str:
     return tracker
 
 
+def get_discovery_source() -> str:
+    """Get the configured discovery source from MEDIA_DISCOVERY_SOURCE env var.
+    
+    Defaults to 'floppy' if not set.
+    Valid values: 'floppy' or 'trakt'
+    """
+    source = os.getenv("MEDIA_DISCOVERY_SOURCE", "floppy").lower()
+    if source not in ("floppy", "trakt"):
+        raise ValueError(f"Invalid MEDIA_DISCOVERY_SOURCE: {source}. Must be 'floppy' or 'trakt'.")
+    return source
+
+
 def get_floppy_config() -> tuple[str, str] | str:
     floppy_url = os.getenv("FLOPPY_URL")
     floppy_api_key = os.getenv("FLOPPY_API_KEY")

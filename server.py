@@ -73,6 +73,18 @@ from media_stack.media_tracker import (
     get_disliked_movies,
     get_disliked_tv_seasons,
 )
+from media_stack.media_discovery import (
+    get_trending_movies,
+    get_trending_shows,
+    get_popular_movies,
+    get_popular_shows,
+    get_high_rated_movies,
+    get_high_rated_shows,
+    search_movie_by_title,
+    search_tv_show_by_title,
+    get_movie_details,
+    get_tv_show_details,
+)
 
 
 def _create_mcp(use_auth: bool = True) -> FastMCP:
@@ -110,28 +122,31 @@ def _register_tools(mcp: FastMCP) -> None:
     for tool in media_tracker_tools:
         mcp.tool(tags={"media_tracker"})(tool)
 
-    # Floppy tools (excluding those merged to media_tracker)
+    # Always register media discovery tools
+    media_discovery_tools = [
+        get_trending_movies,
+        get_trending_shows,
+        get_popular_movies,
+        get_popular_shows,
+        get_high_rated_movies,
+        get_high_rated_shows,
+        search_movie_by_title,
+        search_tv_show_by_title,
+        get_movie_details,
+        get_tv_show_details,
+    ]
+    for tool in media_discovery_tools:
+        mcp.tool(tags={"media_discovery"})(tool)
+
+    # Floppy tools (excluding those merged to media_tracker and media_discovery)
     floppy_tools = [
-        get_floppy_trending_movies,
         get_floppy_top_picks_movie,
-        search_floppy_movie_by_title,
-        search_floppy_tv_show_by_title,
-        get_floppy_movie_details,
-        get_floppy_tv_show_details,
     ]
 
-    # Trakt tools (excluding those merged to media_tracker)
+    # Trakt tools (excluding those merged to media_tracker and media_discovery)
     trakt_tools = [
         check_trakt_profile_privacy,
-        get_trakt_latest_high_rated_movies,
-        get_trakt_latest_high_rated_shows,
         get_trakt_public_liked_shows,
-        get_trakt_popular_movies,
-        get_trakt_popular_shows,
-        get_trakt_trending_movies,
-        get_trakt_trending_shows,
-        search_trakt_movie_by_title,
-        search_trakt_show_by_title,
     ]
 
     for tool in floppy_tools:

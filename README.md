@@ -15,8 +15,6 @@ The following tools are always registered and automatically route to the configu
 - `get_disliked_movies(days=30, limit=50, username=None)` - List disliked movies
 - `get_disliked_tv_seasons(days=30, limit=50)` - List disliked TV seasons (Floppy only)
 
-**Note:** When using these tools with Trakt, some parameters like `username` are required or have different meanings. For Floppy, `username` is not used. Output formats are automatically adapted based on the backend.
-
 **Configuration:**
 ```bash
 # Use Trakt (default is floppy)
@@ -26,28 +24,44 @@ export TRACKED_MEDIA_SOURCE=trakt
 export TRACKED_MEDIA_SOURCE=floppy
 ```
 
+### Media Discovery Tools (Trakt & Floppy)
+
+The following tools are always registered and automatically route to the configured discovery source via the `MEDIA_DISCOVERY_SOURCE` environment variable (defaults to `floppy`):
+
+- `get_trending_movies(limit=50)` - List trending movies
+- `get_trending_shows(limit=50)` - List trending TV shows (Trakt only)
+- `get_popular_movies(limit=50)` - List popular movies (Trakt only)
+- `get_popular_shows(limit=50)` - List popular TV shows (Trakt only)
+- `get_high_rated_movies(days=30, threshold_rating=7, limit=50)` - List high-rated movies (Trakt only)
+- `get_high_rated_shows(days=30, threshold_rating=7, limit=50)` - List high-rated TV shows (Trakt only)
+- `search_movie_by_title(title, year=None, limit=5)` - Search movies by title
+- `search_tv_show_by_title(title, year=None, limit=5)` - Search TV shows by title
+- `get_movie_details(media_id, source=tmdb)` - Get movie details (Floppy only)
+- `get_tv_show_details(media_id, source=tmdb)` - Get TV show details (Floppy only)
+
+**Note:** Some tools are backend-specific. Floppy excels at detailed lookups, while Trakt provides rich discovery. If a tool is not available for your configured backend, you'll receive an error message.
+
+**Configuration:**
+```bash
+# Use Trakt (default is floppy)
+export MEDIA_DISCOVERY_SOURCE=trakt
+
+# Use Floppy (default)
+export MEDIA_DISCOVERY_SOURCE=floppy
+```
+
 ### Separate Floppy Tools
 
 These tools are specific to Floppy and always available:
 
-- `get_floppy_trending_movies()`
-- `get_floppy_top_picks_movie(limit=50)`
-- `search_floppy_movie_by_title(title, limit=5)`
-- `search_floppy_tv_show_by_title(title, limit=5)`
-- `get_floppy_movie_details(media_id, source=tmdb)`
-- `get_floppy_tv_show_details(media_id, source=tmdb)`
+- `get_floppy_top_picks_movie(limit=50)` - Get top pick movies
 
 ### Separate Trakt Tools
 
 These tools are specific to Trakt and always available:
 
-- `check_trakt_profile_privacy(username=None)`
-- `get_trakt_latest_high_rated_movies(days=30, threshold_rating=7, limit=50)`
-- `get_trakt_latest_high_rated_shows(days=30, threshold_rating=7, limit=50)`
-- `get_trakt_popular_movies(limit=50)`
-- `get_trakt_popular_shows(limit=50)`
-- `get_trakt_trending_movies(limit=50)`
-- `get_trakt_trending_shows(limit=50)`
+- `check_trakt_profile_privacy(username=None)` - Check profile privacy
+- `get_trakt_public_liked_shows(username=None, threshold_user_rating=7.5, limit=50)` - List liked shows
 - `get_trakt_public_liked_shows(username=None, threshold_user_rating=7.5, limit=50)`
 - `search_trakt_movie_by_title(title, year=None, limit=5)`
 - `search_trakt_show_by_title(title, year=None, limit=5)`
@@ -169,7 +183,8 @@ unchanged in both short and full formats.
 ## Environment variables
 
 Set the following as needed:
-- `TRACKED_MEDIA_SOURCE` (media tracker for common tools: `floppy` or `trakt`, defaults to `floppy`)
+- `TRACKED_MEDIA_SOURCE` (media tracker for watched/liked/disliked tools: `floppy` or `trakt`, defaults to `floppy`)
+- `MEDIA_DISCOVERY_SOURCE` (discovery source for trending/search/popular/high-rated tools: `floppy` or `trakt`, defaults to `floppy`)
 
 - `TRAKT_CLIENT_ID` (required for Trakt tools)
 - `TRAKT_USERNAME` (optional default username if `username` tool argument is omitted)
@@ -195,6 +210,7 @@ Run container (port 8000):
 ```bash
 docker run --rm -p 8000:8000 \
   -e TRACKED_MEDIA_SOURCE=floppy \
+  -e MEDIA_DISCOVERY_SOURCE=floppy \
   -e TRAKT_CLIENT_ID=your_trakt_client_id \
   -e TRAKT_USERNAME=your_trakt_username \
   -e TMDB_API_KEY=your_tmdb_api_token \
@@ -205,22 +221,34 @@ docker run --rm -p 8000:8000 \
 
 ### Using different media trackers with Docker
 
-Set the `TRACKED_MEDIA_SOURCE` environment variable:
+Set the `TRACKED_MEDIA_SOURCE` and `MEDIA_DISCOVERY_SOURCE` environment variables:
 
 ```bash
-# Use Floppy (default)
+# Use Floppy for both tracked media and discovery (default)
 docker run --rm -p 8000:8000 \
   -e TRACKED_MEDIA_SOURCE=floppy \
+  -e MEDIA_DISCOVERY_SOURCE=floppy \
   -e FLOPPY_URL=your_floppy_url \
   -e FLOPPY_API_KEY=your_floppy_api_key \
   --name mcp-media-stack \
   mcp-media-stack:latest
 
-# Use Trakt
+# Use Trakt for both tracked media and discovery
 docker run --rm -p 8000:8000 \
   -e TRACKED_MEDIA_SOURCE=trakt \
+  -e MEDIA_DISCOVERY_SOURCE=trakt \
   -e TRAKT_CLIENT_ID=your_trakt_client_id \
   -e TRAKT_USERNAME=your_trakt_username \
+  --name mcp-media-stack \
+  mcp-media-stack:latest
+
+# Mix: Floppy for tracking, Trakt for discovery
+docker run --rm -p 8000:8000 \
+  -e TRACKED_MEDIA_SOURCE=floppy \
+  -e MEDIA_DISCOVERY_SOURCE=trakt \
+  -e FLOPPY_URL=your_floppy_url \
+  -e FLOPPY_API_KEY=your_floppy_api_key \
+  -e TRAKT_CLIENT_ID=your_trakt_client_id \
   --name mcp-media-stack \
   mcp-media-stack:latest
 ```
@@ -287,14 +315,17 @@ python server.py --host 0.0.0.0 --port 8000 --transport streamable-http
 
 ### Using different media trackers
 
-To use a different media tracker, set the `TRACKED_MEDIA_SOURCE` environment variable:
+To use different media trackers, set the `TRACKED_MEDIA_SOURCE` and `MEDIA_DISCOVERY_SOURCE` environment variables:
 
 ```bash
-# Use Floppy (default)
-TRACKED_MEDIA_SOURCE=floppy python server.py --host 0.0.0.0 --port 8000 --transport streamable-http
+# Use Floppy for both (default)
+python server.py --host 0.0.0.0 --port 8000 --transport streamable-http
 
-# Use Trakt
-TRACKED_MEDIA_SOURCE=trakt python server.py --host 0.0.0.0 --port 8000 --transport streamable-http
+# Use Trakt for both
+TRACKED_MEDIA_SOURCE=trakt MEDIA_DISCOVERY_SOURCE=trakt python server.py --host 0.0.0.0 --port 8000 --transport streamable-http
+
+# Mix: Floppy for tracking, Trakt for discovery
+TRACKED_MEDIA_SOURCE=floppy MEDIA_DISCOVERY_SOURCE=trakt python server.py --host 0.0.0.0 --port 8000 --transport streamable-http
 ```
 
 ## SSE mode
