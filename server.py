@@ -29,12 +29,6 @@ from media_stack.sonarr import (
     get_sonarr_root_folders,
     get_sonarr_shows,
 )
-from media_stack.tmdb import (
-    get_tmdb_latest_high_rated_movies,
-    get_tmdb_latest_high_rated_shows,
-    get_tmdb_trending_movies,
-    get_tmdb_trending_shows,
-)
 from media_stack.trakt import (
     check_trakt_profile_privacy,
 )
@@ -131,21 +125,12 @@ def _register_tools(mcp: FastMCP) -> None:
         delete_sonarr_show,
         get_sonarr_current_downloads,
     ]
-    tmdb_tools = [
-        get_tmdb_latest_high_rated_movies,
-        get_tmdb_latest_high_rated_shows,
-        get_tmdb_trending_movies,
-        get_tmdb_trending_shows,
-    ]
 
     for tool in radarr_tools:
         mcp.tool(tags={"radarr"})(tool)
 
     for tool in sonarr_tools:
         mcp.tool(tags={"sonarr"})(tool)
-
-    for tool in tmdb_tools:
-        mcp.tool(tags={"tmdb"})(tool)
 
 
 def main() -> None:

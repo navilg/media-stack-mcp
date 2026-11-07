@@ -18,12 +18,12 @@ def get_media_tracker() -> str:
 def get_discovery_source() -> str:
     """Get the configured discovery source from MEDIA_DISCOVERY_SOURCE env var.
     
-    Defaults to 'floppy' if not set.
-    Valid values: 'floppy' or 'trakt'
+    Defaults to 'tmdb' if not set.
+    Valid values: 'tmdb' or 'trakt'
     """
-    source = os.getenv("MEDIA_DISCOVERY_SOURCE", "floppy").lower()
-    if source not in ("floppy", "trakt"):
-        raise ValueError(f"Invalid MEDIA_DISCOVERY_SOURCE: {source}. Must be 'floppy' or 'trakt'.")
+    source = os.getenv("MEDIA_DISCOVERY_SOURCE", "tmdb").lower()
+    if source not in ("tmdb", "trakt"):
+        raise ValueError(f"Invalid MEDIA_DISCOVERY_SOURCE: {source}. Must be 'tmdb' or 'trakt'.")
     return source
 
 

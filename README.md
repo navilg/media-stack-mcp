@@ -1,6 +1,6 @@
 # MCP Media Stack
 
-FastMCP server that exposes media tools backed by Trakt, Floppy, TMDB, Radarr, and Sonarr.
+FastMCP server that exposes media tools backed by Trakt, TMDB, Radarr, and Sonarr.
 
 ## Tools
 
@@ -24,30 +24,30 @@ export TRACKED_MEDIA_SOURCE=trakt
 export TRACKED_MEDIA_SOURCE=floppy
 ```
 
-### Media Discovery Tools (Trakt & Floppy)
+### Media Discovery Tools (TMDB & Trakt)
 
-The following tools are always registered and automatically route to the configured discovery source via the `MEDIA_DISCOVERY_SOURCE` environment variable (defaults to `floppy`):
+The following tools are always registered and automatically route to the configured discovery source via the `MEDIA_DISCOVERY_SOURCE` environment variable (defaults to `tmdb`):
 
 - `get_trending_movies(limit=50)` - List trending movies
-- `get_trending_shows(limit=50)` - List trending TV shows (Trakt only)
-- `get_popular_movies(limit=50)` - List popular movies (Trakt only)
-- `get_popular_shows(limit=50)` - List popular TV shows (Trakt only)
-- `get_high_rated_movies(days=30, threshold_rating=7, limit=50)` - List high-rated movies (Trakt only)
-- `get_high_rated_shows(days=30, threshold_rating=7, limit=50)` - List high-rated TV shows (Trakt only)
+- `get_trending_shows(limit=50)` - List trending TV shows
+- `get_popular_movies(limit=50)` - List popular movies
+- `get_popular_shows(limit=50)` - List popular TV shows
+- `get_high_rated_movies(days=30, threshold_rating=7, limit=50)` - List high-rated movies
+- `get_high_rated_shows(days=30, threshold_rating=7, limit=50)` - List high-rated TV shows
 - `search_movie_by_title(title, year=None, limit=5)` - Search movies by title
 - `search_tv_show_by_title(title, year=None, limit=5)` - Search TV shows by title
-- `get_movie_details(media_id, source=tmdb)` - Get movie details (Floppy only)
-- `get_tv_show_details(media_id, source=tmdb)` - Get TV show details (Floppy only)
+- `get_movie_details(media_id)` - Get movie details (TMDB only)
+- `get_tv_show_details(media_id)` - Get TV show details (TMDB only)
 
-**Note:** Some tools are backend-specific. Floppy excels at detailed lookups, while Trakt provides rich discovery. If a tool is not available for your configured backend, you'll receive an error message.
+**Note:** Detail lookup functions (`get_movie_details`, `get_tv_show_details`) are only available with TMDB. When using Trakt as the discovery source, these functions will return an error message directing you to use TMDB instead.
 
 **Configuration:**
 ```bash
-# Use Trakt (default is floppy)
-export MEDIA_DISCOVERY_SOURCE=trakt
+# Use TMDB (default)
+export MEDIA_DISCOVERY_SOURCE=tmdb
 
-# Use Floppy (default)
-export MEDIA_DISCOVERY_SOURCE=floppy
+# Use Trakt
+export MEDIA_DISCOVERY_SOURCE=trakt
 ```
 
 ### Trakt-Specific Tools
@@ -56,14 +56,33 @@ These tools are only available when using Trakt:
 
 - `check_trakt_profile_privacy(username=None)` - Check profile privacy (requires TRAKT_CLIENT_ID; only registered if TRACKED_MEDIA_SOURCE or MEDIA_DISCOVERY_SOURCE is set to "trakt")
 
-### TMDB Tools
+### TMDB Discovery Functions (merged into Media Discovery)
 
-- `get_tmdb_latest_high_rated_movies(days=30, threshold_rating=7, limit=50)`
-- `get_tmdb_latest_high_rated_shows(days=30, threshold_rating=7, limit=50)`
-- `get_tmdb_trending_movies(limit=50, time_window=week)`
-- `get_tmdb_trending_shows(limit=50, time_window=week)`
+The TMDB discovery functions have been consolidated into the Media Discovery tools above and automatically route based on `MEDIA_DISCOVERY_SOURCE`:
 
-### Radarr Tools
+- When `MEDIA_DISCOVERY_SOURCE=tmdb` (default), all discovery tools use TMDB APIs
+- When `MEDIA_DISCOVERY_SOURCE=trakt`, discovery tools use Trakt APIs
+
+TMDB-powered discovery includes:
+- `get_tmdb_latest_high_rated_movies(days=30, threshold_rating=7, limit=50)` - High-rated recent movies
+- `get_tmdb_latest_high_rated_shows(days=30, threshold_rating=7, limit=50)` - High-rated recent TV shows
+- `get_tmdb_trending_movies(limit=50, time_window=week)` - Trending movies
+- `get_tmdb_trending_shows(limit=50, time_window=week)` - Trending TV shows
+- `get_tmdb_popular_movies(limit=50)` - Popular movies
+- `get_tmdb_popular_shows(limit=50)` - Popular TV shows
+- `search_tmdb_movie_by_title(title, year=None, limit=5)` - Search movies
+- `search_tmdb_tv_show_by_title(title, year=None, limit=5)` - Search shows
+- `get_tmdb_movie_details(tmdb_id)` - Movie details by TMDB ID
+- `get_tmdb_tv_show_details(tmdb_id)` - TV show details by TMDB ID
+
+All TMDB functions include automatic retry logic (10 attempts with exponential backoff) to handle transient API failures. Pagination loops until the limit is reached or all pages are exhausted.
+
+`get_tmdb_latest_high_rated_shows()` and `get_tmdb_trending_shows()` fetch the latest season air date for each show, requiring an additional API call per show. This is useful for discovering shows with recent season releases.
+
+Output format is TSV:
+- **Movies:** `title`, `release_date`, `average_rating`, `vote_count`, `popularity`, `genre_ids`, `original_language`, `overview`, `tmdb_id`
+- **TV:** `name`, `latest_air_date`, `average_rating`, `vote_count`, `popularity`, `genre_ids`, `original_language`, `overview`, `tmdb_id`
+- **Details:** Additional fields like `runtime`, `budget`, `revenue`, `number_of_seasons`, `number_of_episodes`
 
 - `get_radarr_movies(full_details=False, title=None, filter=None)`
 - `get_radarr_quality_profiles()`
@@ -80,6 +99,30 @@ These tools are only available when using Trakt:
 - `add_sonarr_show(show_query, root_folder_path, quality_profile_id, season_number_to_monitor)`
 - `delete_sonarr_show(show_query, delete_files=True)`
 - `get_sonarr_current_downloads()`
+
+`get_radarr_movies()` returns short TSV rows containing only `title`, `year`,
+`monitored`, and `has_file`. Pass `full_details=True` to include all existing
+metadata: status, file path, file size, quality, genres, runtime, certification,
+TMDb ID, and IMDb ID.
+Optionally pass `title="Dune"` to return case-insensitive partial title matches
+(for example, `Dune` and `Dune: Part Two`), ignoring surrounding whitespace in the
+filter. Omit `title` to return the entire library. An empty or
+whitespace-only title returns an error; no matches returns `Empty list`.
+
+Optionally pass a JSON/dict object as `filter`, for example:
+
+```json
+{"monitored": true, "has_file": true, "genre": "romance", "certification": "R"}
+```
+
+Only these four keys are allowed, and each is optional. `monitored` and `has_file`
+must be booleans; `genre` and `certification` must be non-empty strings.
+All supplied fields must match (AND), together with any `title` filter.
+Genre matches one complete genre in the movie's genres; certification matches
+the complete rating. Both ignore case and surrounding whitespace.
+Omitting `filter`, passing `null`/`None`, or passing `{}` leaves the library
+unfiltered apart from any `title` filter. Invalid keys or values return an error.
+Filtering works with both short and full output; no matches returns `Empty list`.
 
 `get_tmdb_latest_high_rated_movies()` and `get_tmdb_latest_high_rated_shows()` 
 fetch recent high-rated content from TMDB with automatic retry logic (10 attempts 
@@ -117,52 +160,7 @@ TV output: `name`, `latest_air_date`, `average_rating`, `vote_count`, `popularit
 - `get_sonarr_root_folders()`
 - `add_sonarr_show(show_query, root_folder_path, quality_profile_id, season_number_to_monitor)`
 - `delete_sonarr_show(show_query, delete_files=True)`
-- `get_sonarr_current_downloads()`
-
-`get_radarr_movies()` returns short TSV rows containing only `title`, `year`,
-`monitored`, and `has_file`. Pass `full_details=True` to include all existing
-metadata: status, file path, file size, quality, genres, runtime, certification,
-TMDb ID, and IMDb ID.
-Optionally pass `title="Dune"` to return case-insensitive partial title matches
-(for example, `Dune` and `Dune: Part Two`), ignoring surrounding whitespace in the
-filter. Omit `title` to return the entire library. An empty or
-whitespace-only title returns an error; no matches returns `Empty list`.
-
-Optionally pass a JSON/dict object as `filter`, for example:
-
-```json
-{"monitored": true, "has_file": true, "genre": "romance", "certification": "R"}
-```
-
-Only these four keys are allowed, and each is optional. `monitored` and `has_file`
-must be booleans; `genre` and `certification` must be non-empty strings.
-All supplied fields must match (AND), together with any `title` filter.
-Genre matches one complete genre in the movie's genres; certification matches
-the complete rating. Both ignore case and surrounding whitespace.
-Omitting `filter`, passing `null`/`None`, or passing `{}` leaves the library
-unfiltered apart from any `title` filter. Invalid keys or values return an error.
-Filtering works with both short and full output; no matches returns `Empty list`.
-
-`get_sonarr_shows()` returns short TSV rows containing only `title`, `year`,
-`monitored`, and `episode_file_count`. Pass `full_details=True` to return all
-previous series metadata, including status, path, season and episode counts,
-disk usage, genres, runtime, network, certification, language, TVDb ID, and IMDb ID.
-Optionally pass `title="dark"` for case-insensitive partial title matching,
-ignoring surrounding whitespace in the filter. Omit `title` to return all shows.
-An empty or whitespace-only title returns an error; no matches returns `Empty list`.
-
-Sonarr also accepts the same optional JSON/dict `filter` with only `monitored`,
-`has_file`, `genre`, and `certification`, for example:
-
-```json
-{"monitored": true, "has_file": true, "genre": "drama", "certification": "TV-MA"}
-```
-
-Each key is optional. Boolean and string validation, AND matching with `title`,
-case-insensitive exact genre/certification matching, and empty-filter behavior
-are the same as Radarr. For shows, `has_file=true` means at least one downloaded
-episode (`episodeFileCount > 0`); `false` matches shows with no downloaded
-episodes, including missing or null counts. The existing output columns remain
+- `get_sonarr_current_downloads()`ing missing or null counts. The existing output columns remain
 unchanged in both short and full formats.
 
 ## Prerequisites

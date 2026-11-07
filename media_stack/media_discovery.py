@@ -1,15 +1,20 @@
-"""Discovery and search router tools that route to either Floppy or Trakt based on configuration."""
+"""Discovery and search router tools that route to either TMDB or Trakt based on configuration."""
 
 from media_stack.config import get_discovery_source
 from media_stack.logging_util import log_tool_call
 
-# Import floppy tools needed for routing
-from media_stack.floppy import (
-    get_floppy_trending_movies as _floppy_trending_movies,
-    search_floppy_movie_by_title as _floppy_search_movie,
-    search_floppy_tv_show_by_title as _floppy_search_tv_show,
-    get_floppy_movie_details as _floppy_movie_details,
-    get_floppy_tv_show_details as _floppy_tv_show_details,
+# Import TMDB tools needed for routing
+from media_stack.tmdb import (
+    get_tmdb_trending_movies as _tmdb_trending_movies,
+    get_tmdb_trending_shows as _tmdb_trending_shows,
+    get_tmdb_popular_movies as _tmdb_popular_movies,
+    get_tmdb_popular_shows as _tmdb_popular_shows,
+    get_tmdb_latest_high_rated_movies as _tmdb_high_rated_movies,
+    get_tmdb_latest_high_rated_shows as _tmdb_high_rated_shows,
+    search_tmdb_movie_by_title as _tmdb_search_movie,
+    search_tmdb_tv_show_by_title as _tmdb_search_tv_show,
+    get_tmdb_movie_details as _tmdb_movie_details,
+    get_tmdb_tv_show_details as _tmdb_tv_show_details,
 )
 
 # Import trakt tools needed for routing
@@ -29,8 +34,8 @@ from media_stack.trakt import (
 def get_trending_movies(limit: int = 50) -> str:
     """List trending movies as TSV. Routes to configured discovery source (MEDIA_DISCOVERY_SOURCE env var). Errors as strings."""
     source = get_discovery_source()
-    if source == "floppy":
-        return _floppy_trending_movies(limit=limit)
+    if source == "tmdb":
+        return _tmdb_trending_movies(limit=limit)
     else:  # trakt
         return _trakt_trending_movies(limit=limit)
 
@@ -39,8 +44,8 @@ def get_trending_movies(limit: int = 50) -> str:
 def get_trending_shows(limit: int = 50) -> str:
     """List trending TV shows as TSV. Routes to configured discovery source (MEDIA_DISCOVERY_SOURCE env var). Errors as strings."""
     source = get_discovery_source()
-    if source == "floppy":
-        return "Error: Floppy does not support get_trending_shows. Use Trakt as MEDIA_DISCOVERY_SOURCE instead."
+    if source == "tmdb":
+        return _tmdb_trending_shows(limit=limit)
     else:  # trakt
         return _trakt_trending_shows(limit=limit)
 
@@ -49,8 +54,8 @@ def get_trending_shows(limit: int = 50) -> str:
 def get_popular_movies(limit: int = 50) -> str:
     """List popular movies as TSV. Routes to configured discovery source (MEDIA_DISCOVERY_SOURCE env var). Errors as strings."""
     source = get_discovery_source()
-    if source == "floppy":
-        return "Error: Floppy does not support get_popular_movies. Use Trakt as MEDIA_DISCOVERY_SOURCE instead."
+    if source == "tmdb":
+        return _tmdb_popular_movies(limit=limit)
     else:  # trakt
         return _trakt_popular_movies(limit=limit)
 
@@ -59,8 +64,8 @@ def get_popular_movies(limit: int = 50) -> str:
 def get_popular_shows(limit: int = 50) -> str:
     """List popular TV shows as TSV. Routes to configured discovery source (MEDIA_DISCOVERY_SOURCE env var). Errors as strings."""
     source = get_discovery_source()
-    if source == "floppy":
-        return "Error: Floppy does not support get_popular_shows. Use Trakt as MEDIA_DISCOVERY_SOURCE instead."
+    if source == "tmdb":
+        return _tmdb_popular_shows(limit=limit)
     else:  # trakt
         return _trakt_popular_shows(limit=limit)
 
@@ -73,8 +78,8 @@ def get_high_rated_movies(
 ) -> str:
     """List high-rated movies as TSV. Routes to configured discovery source (MEDIA_DISCOVERY_SOURCE env var). Errors as strings."""
     source = get_discovery_source()
-    if source == "floppy":
-        return "Error: Floppy does not support get_high_rated_movies. Use Trakt as MEDIA_DISCOVERY_SOURCE instead."
+    if source == "tmdb":
+        return _tmdb_high_rated_movies(days=days, threshold_rating=threshold_rating, limit=limit)
     else:  # trakt
         return _trakt_high_rated_movies(days=days, threshold_rating=threshold_rating, limit=limit)
 
@@ -87,8 +92,8 @@ def get_high_rated_shows(
 ) -> str:
     """List high-rated TV shows as TSV. Routes to configured discovery source (MEDIA_DISCOVERY_SOURCE env var). Errors as strings."""
     source = get_discovery_source()
-    if source == "floppy":
-        return "Error: Floppy does not support get_high_rated_shows. Use Trakt as MEDIA_DISCOVERY_SOURCE instead."
+    if source == "tmdb":
+        return _tmdb_high_rated_shows(days=days, threshold_rating=threshold_rating, limit=limit)
     else:  # trakt
         return _trakt_high_rated_shows(days=days, threshold_rating=threshold_rating, limit=limit)
 
@@ -101,10 +106,8 @@ def search_movie_by_title(
 ) -> str:
     """Search for movies by title as TSV. Routes to configured discovery source (MEDIA_DISCOVERY_SOURCE env var). Errors as strings."""
     source = get_discovery_source()
-    if source == "floppy":
-        if year is not None:
-            return "Warning: Floppy search does not support year parameter. Ignoring it."
-        return _floppy_search_movie(title=title, limit=limit)
+    if source == "tmdb":
+        return _tmdb_search_movie(title=title, year=year, limit=limit)
     else:  # trakt
         return _trakt_search_movie(title=title, year=year, limit=limit)
 
@@ -117,10 +120,8 @@ def search_tv_show_by_title(
 ) -> str:
     """Search for TV shows by title as TSV. Routes to configured discovery source (MEDIA_DISCOVERY_SOURCE env var). Errors as strings."""
     source = get_discovery_source()
-    if source == "floppy":
-        if year is not None:
-            return "Warning: Floppy search does not support year parameter. Ignoring it."
-        return _floppy_search_tv_show(title=title, limit=limit)
+    if source == "tmdb":
+        return _tmdb_search_tv_show(title=title, year=year, limit=limit)
     else:  # trakt
         return _trakt_search_tv_show(title=title, year=year, limit=limit)
 
@@ -128,24 +129,22 @@ def search_tv_show_by_title(
 @log_tool_call
 def get_movie_details(
     media_id: str,
-    source: str = "tmdb",
 ) -> str:
     """Get movie details as TSV. Routes to configured discovery source (MEDIA_DISCOVERY_SOURCE env var). Errors as strings."""
-    source_backend = get_discovery_source()
-    if source_backend == "floppy":
-        return _floppy_movie_details(media_id=media_id, source=source)
-    else:  # trakt
-        return "Error: Trakt does not support get_movie_details. Use Floppy as MEDIA_DISCOVERY_SOURCE instead."
+    source = get_discovery_source()
+    if source == "tmdb":
+        return _tmdb_movie_details(tmdb_id=media_id)
+    else:  # trakt - not supported
+        return "Error: Trakt does not support get_movie_details. Use TMDB as MEDIA_DISCOVERY_SOURCE instead."
 
 
 @log_tool_call
 def get_tv_show_details(
     media_id: str,
-    source: str = "tmdb",
 ) -> str:
     """Get TV show details as TSV. Routes to configured discovery source (MEDIA_DISCOVERY_SOURCE env var). Errors as strings."""
-    source_backend = get_discovery_source()
-    if source_backend == "floppy":
-        return _floppy_tv_show_details(media_id=media_id, source=source)
-    else:  # trakt
-        return "Error: Trakt does not support get_tv_show_details. Use Floppy as MEDIA_DISCOVERY_SOURCE instead."
+    source = get_discovery_source()
+    if source == "tmdb":
+        return _tmdb_tv_show_details(tmdb_id=media_id)
+    else:  # trakt - not supported
+        return "Error: Trakt does not support get_tv_show_details. Use TMDB as MEDIA_DISCOVERY_SOURCE instead."
