@@ -1,7 +1,9 @@
 import argparse
 import os
 import sys
+from pathlib import Path
 
+from dotenv import load_dotenv
 from fastmcp import FastMCP
 
 from media_stack.auth import create_bearer_auth
@@ -147,6 +149,11 @@ def _register_tools(mcp: FastMCP) -> None:
 
 
 def main() -> None:
+    # Load environment variables from .env file if it exists
+    env_file = Path(".env")
+    if env_file.exists():
+        load_dotenv(env_file)
+    
     parser = argparse.ArgumentParser(description="Run the Media Stack MCP server.")
     parser.add_argument("--host", type=str, default="0.0.0.0", help="Host address to bind the server to")
     parser.add_argument("--port", type=int, default=8000, help="Port to bind the server to")

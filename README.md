@@ -172,20 +172,57 @@ unchanged in both short and full formats.
 
 ## Environment variables
 
-Set the following as needed:
+### Using .env file (recommended)
+
+The server automatically loads environment variables from a `.env` file in the project root directory if it exists. This is the recommended way to manage configuration:
+
+1. Copy `test.env.example` to `.env`:
+   ```bash
+   cp test.env.example .env
+   ```
+
+2. Edit `.env` and add your configuration:
+   ```
+   TRACKED_MEDIA_SOURCE=floppy
+   MEDIA_DISCOVERY_SOURCE=floppy
+   TRAKT_CLIENT_ID=your_trakt_client_id
+   TRAKT_USERNAME=your_trakt_username
+   TMDB_API_KEY=your_tmdb_api_token
+   RADARR_URL=http://localhost:7878
+   RADARR_API_KEY=your_api_key
+   SONARR_URL=http://localhost:8989
+   SONARR_API_KEY=your_api_key
+   FLOPPY_URL=http://localhost:8000
+   FLOPPY_API_KEY=your_api_key
+   MCP_AUTH_TOKEN=your_auth_token_10chars_min
+   DISABLE_TOOLSETS=
+   ```
+
+3. Run the server - it will automatically load variables from `.env`:
+   ```bash
+   python server.py
+   ```
+
+**Note:** If `.env` doesn't exist, the server starts normally and uses system environment variables instead.
+
+### Available environment variables
+
+Set the following as needed (via `.env` file or system environment):
 - `TRACKED_MEDIA_SOURCE` (media tracker for watched/liked/disliked tools: `floppy` or `trakt`, defaults to `floppy`)
 - `MEDIA_DISCOVERY_SOURCE` (discovery source for trending/search/popular/high-rated tools: `floppy` or `trakt`, defaults to `floppy`)
 
 - `TRAKT_CLIENT_ID` (required for Trakt tools)
 - `TRAKT_USERNAME` (optional default username if `username` tool argument is omitted)
-- `TMDB_API_KEY` (required for TMDB tools; use Bearer token format)
+- `TMDB_API_KEY` (required for TMDB tools; use ****** format)
 - `RADARR_URL` (required for Radarr tools)
 - `RADARR_API_KEY` (required for Radarr tools)
 - `SONARR_URL` (required for Sonarr tools)
 - `SONARR_API_KEY` (required for Sonarr tools)
 - `FLOPPY_URL` (Floppy instance base URL, required for Floppy tools)
 - `FLOPPY_API_KEY` (required for Floppy tools; needs `watchlist:read` scope)
+- `MCP_AUTH_TOKEN` (optional authentication token for streamable-http transport; minimum 10 characters with at least 2 lowercase, 2 uppercase, and 2 digits)
 - `DISABLE_TOOLSETS` (optional comma-separated list of toolsets to disable at startup, e.g. `radarr,tmdb,trakt`)
+
 
 ## Quick start (Docker)
 
