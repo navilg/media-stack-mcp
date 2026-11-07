@@ -50,21 +50,11 @@ export MEDIA_DISCOVERY_SOURCE=trakt
 export MEDIA_DISCOVERY_SOURCE=floppy
 ```
 
-### Separate Floppy Tools
+### Trakt-Specific Tools
 
-These tools are specific to Floppy and always available:
+These tools are only available when using Trakt:
 
-- `get_floppy_top_picks_movie(limit=50)` - Get top pick movies
-
-### Separate Trakt Tools
-
-These tools are specific to Trakt and always available:
-
-- `check_trakt_profile_privacy(username=None)` - Check profile privacy
-- `get_trakt_public_liked_shows(username=None, threshold_user_rating=7.5, limit=50)` - List liked shows
-- `get_trakt_public_liked_shows(username=None, threshold_user_rating=7.5, limit=50)`
-- `search_trakt_movie_by_title(title, year=None, limit=5)`
-- `search_trakt_show_by_title(title, year=None, limit=5)`
+- `check_trakt_profile_privacy(username=None)` - Check profile privacy (requires TRAKT_CLIENT_ID; only registered if TRACKED_MEDIA_SOURCE or MEDIA_DISCOVERY_SOURCE is set to "trakt")
 
 ### TMDB Tools
 

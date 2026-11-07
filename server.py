@@ -7,26 +7,10 @@ from fastmcp import FastMCP
 from media_stack.auth import create_bearer_auth
 from media_stack.config import (
     compute_tags_to_disable as _compute_tags_to_disable,
-    get_radarr_config as _get_radarr_config,
     parse_toolsets as _parse_toolsets,
     get_media_tracker as _get_media_tracker,
+    get_discovery_source as _get_discovery_source,
 )
-from media_stack.constants import VALID_TOOLSETS
-from media_stack.floppy import (
-    get_floppy_trending_movies,
-    get_floppy_watched_movies,
-    get_floppy_watched_tv_seasons,
-    get_floppy_liked_movies,
-    get_floppy_liked_tv_seasons,
-    get_floppy_disliked_movies,
-    get_floppy_disliked_tv_seasons,
-    search_floppy_movie_by_title,
-    search_floppy_tv_show_by_title,
-    get_floppy_top_picks_movie,
-    get_floppy_movie_details,
-    get_floppy_tv_show_details,
-)
-from media_stack.formatting import to_tsv as _to_tsv
 from media_stack.radarr import (
     add_radarr_movie,
     delete_radarr_movie,
@@ -51,19 +35,6 @@ from media_stack.tmdb import (
 )
 from media_stack.trakt import (
     check_trakt_profile_privacy,
-    get_trakt_latest_high_rated_movies,
-    get_trakt_latest_high_rated_shows,
-    get_trakt_public_liked_shows,
-    get_trakt_popular_movies,
-    get_trakt_popular_shows,
-    get_trakt_trending_movies,
-    get_trakt_trending_shows,
-    get_trakt_public_disliked_movies,
-    get_trakt_public_liked_movies,
-    get_trakt_public_watched_movies,
-    get_trakt_public_watched_shows,
-    search_trakt_movie_by_title,
-    search_trakt_show_by_title,
 )
 from media_stack.media_tracker import (
     get_watched_movies,
@@ -138,22 +109,9 @@ def _register_tools(mcp: FastMCP) -> None:
     for tool in media_discovery_tools:
         mcp.tool(tags={"media_discovery"})(tool)
 
-    # Floppy tools (excluding those merged to media_tracker and media_discovery)
-    floppy_tools = [
-        get_floppy_top_picks_movie,
-    ]
-
-    # Trakt tools (excluding those merged to media_tracker and media_discovery)
-    trakt_tools = [
-        check_trakt_profile_privacy,
-        get_trakt_public_liked_shows,
-    ]
-
-    for tool in floppy_tools:
-        mcp.tool(tags={"floppy"})(tool)
-
-    for tool in trakt_tools:
-        mcp.tool(tags={"trakt"})(tool)
+    # Register check_trakt_profile_privacy if using Trakt for either tracking or discovery
+    if _get_media_tracker() == "trakt" or _get_discovery_source() == "trakt":
+        mcp.tool()(check_trakt_profile_privacy)
 
     radarr_tools = [
         get_radarr_movies,
