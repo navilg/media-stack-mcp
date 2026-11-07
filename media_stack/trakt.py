@@ -649,8 +649,8 @@ def get_trakt_popular_shows(limit: int = 50) -> str:
 
 
 @log_tool_call
-def get_trakt_trending_movies() -> str:
-    """List up to 20 trending Trakt movies as TSV; errors as strings."""
+def get_trakt_trending_movies(limit: int = 50) -> str:
+    """List trending Trakt movies as TSV; errors as strings."""
     headers = _get_trakt_headers()
 
     if isinstance(headers, str):
@@ -659,7 +659,7 @@ def get_trakt_trending_movies() -> str:
     endpoint = f"{TRAKT_API_BASE}/movies/trending"
     params = {
         "extended": "full",
-        "limit": "20",
+        "limit": str(limit),
     }
 
     try:
@@ -668,7 +668,7 @@ def get_trakt_trending_movies() -> str:
     except requests.RequestException as exc:
         return f"Error: Failed to fetch trending movies from Trakt: {exc}"
 
-    trending_data = response.json()[:20]
+    trending_data = response.json()[:limit]
     trending_movies: list[dict] = []
     for item in trending_data:
         movie = item.get("movie", {})
@@ -692,8 +692,8 @@ def get_trakt_trending_movies() -> str:
 
 
 @log_tool_call
-def get_trakt_trending_shows() -> str:
-    """List up to 20 trending Trakt shows as TSV; errors as strings."""
+def get_trakt_trending_shows(limit: int = 50) -> str:
+    """List trending Trakt shows as TSV; errors as strings."""
     headers = _get_trakt_headers()
 
     if isinstance(headers, str):
@@ -702,7 +702,7 @@ def get_trakt_trending_shows() -> str:
     endpoint = f"{TRAKT_API_BASE}/shows/trending"
     params = {
         "extended": "full",
-        "limit": "20",
+        "limit": str(limit),
     }
 
     try:
@@ -711,7 +711,7 @@ def get_trakt_trending_shows() -> str:
     except requests.RequestException as exc:
         return f"Error: Failed to fetch trending shows from Trakt: {exc}"
 
-    trending_data = response.json()[:20]
+    trending_data = response.json()[:limit]
     trending_shows: list[dict] = []
     for item in trending_data:
         show = item.get("show", {})
@@ -774,7 +774,7 @@ def get_trakt_popular_movies(limit: int = 50) -> str:
 
 
 @log_tool_call
-def search_trakt_movie_by_title(title: str, limit: int = 5) -> str:
+def search_trakt_movie_by_title(title: str, year: int | None = None, limit: int = 5) -> str:
     """Search Trakt movies by title; TSV matches (title required, limit > 0), errors as strings."""
     headers = _get_trakt_headers()
 
@@ -786,8 +786,12 @@ def search_trakt_movie_by_title(title: str, limit: int = 5) -> str:
         return "Error: limit must be greater than 0"
 
     endpoint = f"{TRAKT_API_BASE}/search/movie"
+    query = title.strip()
+    if year is not None:
+        query = f"{query} years:{year}"
+    
     params = {
-        "query": title.strip(),
+        "query": query,
         "extended": "full",
         "limit": str(limit),
     }
@@ -825,7 +829,7 @@ def search_trakt_movie_by_title(title: str, limit: int = 5) -> str:
 
 
 @log_tool_call
-def search_trakt_show_by_title(title: str, limit: int = 5) -> str:
+def search_trakt_show_by_title(title: str, year: int | None = None, limit: int = 5) -> str:
     """Search Trakt shows by title; TSV matches (title required, limit > 0), errors as strings."""
     headers = _get_trakt_headers()
 
@@ -837,8 +841,12 @@ def search_trakt_show_by_title(title: str, limit: int = 5) -> str:
         return "Error: limit must be greater than 0"
 
     endpoint = f"{TRAKT_API_BASE}/search/show"
+    query = title.strip()
+    if year is not None:
+        query = f"{query} years:{year}"
+    
     params = {
-        "query": title.strip(),
+        "query": query,
         "extended": "full",
         "limit": str(limit),
     }
