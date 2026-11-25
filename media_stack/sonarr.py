@@ -3,6 +3,7 @@ import requests
 from media_stack.config import get_sonarr_config
 from media_stack.filters import normalize_library_filter
 from media_stack.formatting import to_tsv
+from media_stack.history import get_history
 from media_stack.logging_util import log_tool_call
 
 
@@ -106,6 +107,51 @@ def get_sonarr_shows(
 
     series_rows.sort(key=lambda item: item["title"] or "")
     return to_tsv(series_rows)
+
+
+@log_tool_call
+def get_sonarr_history(
+    event_type: str = "all",
+    sort_direction: str = "descending",
+    limit: int = 10,
+) -> str:
+    """List Sonarr history as TSV, sorted by date. Event types: grabbed,
+    seriesFolderImported, downloadFolderImported, downloadFailed, episodeFileDeleted,
+    episodeFileRenamed, downloadIgnored, unknown, or all (default). Sort: ascending
+    or descending (default). Limit defaults to 10 and must be positive. Errors as strings.
+    """
+    event_types = {
+        "unknown": 0,
+        "grabbed": 1,
+        "seriesfolderimported": 2,
+        "downloadfolderimported": 3,
+        "downloadfailed": 4,
+        "episodefiledeleted": 5,
+        "episodefilerenamed": 6,
+        "downloadignored": 7,
+    }
+    def format_record(record: dict) -> dict:
+        series = record.get("series") or {}
+        episode = record.get("episode") or {}
+        quality = record.get("quality") or {}
+        data = record.get("data") or {}
+        return {
+            "date": record.get("date"),
+            "title": series.get("title"),
+            "season_number": episode.get("seasonNumber"),
+            "episode_number": episode.get("episodeNumber"),
+            "episode_title": episode.get("title"),
+            "event_type": record.get("eventType"),
+            "source_title": record.get("sourceTitle"),
+            "quality": (quality.get("quality") or {}).get("name"),
+            "download_id": record.get("downloadId"),
+            "message": data.get("message") or data.get("Message"),
+        }
+
+    return get_history(
+        event_type, sort_direction, limit, event_types, "Sonarr", get_sonarr_config,
+        {"includeSeries": "true", "includeEpisode": "true"}, format_record,
+    )
 
 
 @log_tool_call

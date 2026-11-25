@@ -26,6 +26,7 @@ from media_stack.sonarr import (
     add_sonarr_show,
     delete_sonarr_show,
     get_sonarr_current_downloads,
+    get_sonarr_history,
     get_sonarr_quality_profiles,
     get_sonarr_root_folders,
     get_sonarr_shows,
@@ -121,6 +122,7 @@ def _register_tools(mcp: FastMCP) -> None:
     ]
     sonarr_tools = [
         get_sonarr_shows,
+        get_sonarr_history,
         get_sonarr_quality_profiles,
         get_sonarr_root_folders,
         add_sonarr_show,

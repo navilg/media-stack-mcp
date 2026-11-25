@@ -1196,6 +1196,126 @@ def test_get_radarr_root_folders():
     assert "path" in records[0]
 
 
+def test_get_sonarr_history():
+    response = {"totalRecords": 2, "records": [{
+        "date": "2025-03-01T12:00:00Z", "eventType": "downloadFolderImported",
+        "series": {"title": "Dark"},
+        "episode": {"seasonNumber": 1, "episodeNumber": 2, "title": "Lies"},
+        "sourceTitle": "Dark.S01E02", "quality": {"quality": {"name": "HDTV-1080p"}},
+        "downloadId": "abc",
+    }, {
+        "date": "2024-01-01T12:00:00Z", "eventType": "downloadFailed",
+        "series": {"title": "Dark"}, "data": {"Message": "Disk full"},
+    }]}
+    with (
+        patch("media_stack.sonarr.get_sonarr_config", return_value=("http://sonarr", "test")),
+        patch("media_stack.sonarr.requests.get") as get,
+    ):
+        get.return_value.json.return_value = response
+        assert server.get_sonarr_history() == (
+            "date\ttitle\tseason_number\tepisode_number\tepisode_title\tevent_type\t"
+            "source_title\tquality\tdownload_id\tmessage\n"
+            "2025-03-01T12:00:00Z\tDark\t1\t2\tLies\tdownloadFolderImported\t"
+            "Dark.S01E02\tHDTV-1080p\tabc\t\n"
+            "2024-01-01T12:00:00Z\tDark\t\t\t\tdownloadFailed\t\t\t\tDisk full"
+        )
+        get.assert_called_once_with(
+            "http://sonarr/api/v3/history",
+            params={"page": 1, "pageSize": 10, "sortKey": "date",
+                    "sortDirection": "descending", "includeSeries": "true",
+                    "includeEpisode": "true"},
+            headers={"X-Api-Key": "test"}, timeout=20,
+        )
+        get.return_value.json.return_value = {
+            "totalRecords": 12, "records": [{"date": str(i)} for i in range(12)],
+        }
+        assert len(_parse_tsv(server.get_sonarr_history())) == 10
+        assert len(_parse_tsv(server.get_sonarr_history(limit=1))) == 1
+        assert get.call_args.kwargs["params"]["pageSize"] == 1
+
+
+def test_get_sonarr_history_pagination():
+    calls = []
+
+    def respond(url, **kwargs):
+        calls.append(dict(kwargs["params"]))
+        count = 1000 if len(calls) == 1 else 1
+        return Mock(json=Mock(return_value={
+            "totalRecords": 1002, "records": [{"date": "2024-01-01"}] * count,
+        }))
+
+    with (
+        patch("media_stack.sonarr.get_sonarr_config", return_value=("http://sonarr", "test")),
+        patch("media_stack.sonarr.requests.get", side_effect=respond),
+    ):
+        assert len(_parse_tsv(server.get_sonarr_history(limit=1001))) == 1001
+        assert [params["page"] for params in calls] == [1, 2]
+        assert all(params["pageSize"] == 1000 for params in calls)
+
+
+def test_get_sonarr_history_filters_and_errors():
+    cases = {
+        "unknown": 0, "grabbed": 1, "seriesFolderImported": 2,
+        "downloadFolderImported": 3, "downloadFailed": 4,
+        "episodeFileDeleted": 5, "episodeFileRenamed": 6, "downloadIgnored": 7,
+    }
+    with (
+        patch("media_stack.sonarr.get_sonarr_config", return_value=("http://sonarr", "test")),
+        patch("media_stack.sonarr.requests.get") as get,
+    ):
+        get.return_value.json.return_value = {"totalRecords": 0, "records": []}
+        for event_type, event_id in cases.items():
+            assert server.get_sonarr_history(f" {event_type.upper()} ", " Ascending ") == "Empty list"
+            assert get.call_args.kwargs["params"]["eventType"] == event_id
+            assert get.call_args.kwargs["params"]["sortDirection"] == "ascending"
+        get.reset_mock()
+        assert server.get_sonarr_history("invalid") == "Error: unsupported Sonarr history event_type"
+        assert server.get_sonarr_history(sort_direction="invalid").startswith("Error:")
+        for limit in (0, -1, True, 1.5, "10"):
+            assert server.get_sonarr_history(limit=limit) == "Error: limit must be a positive integer"
+        get.assert_not_called()
+
+        get.side_effect = RequestException("unavailable")
+        assert server.get_sonarr_history() == "Error: Failed to fetch history from Sonarr: unavailable"
+        get.side_effect = None
+        get.return_value.json.return_value = {"totalRecords": 1, "records": []}
+        assert server.get_sonarr_history() == "Error: Invalid history response from Sonarr"
+
+
+def test_get_sonarr_history_mcp():
+    async def check_tool():
+        mcp = server._create_mcp(use_auth=False)
+        server._register_tools(mcp)
+        async with Client(mcp) as client:
+            tool = next(tool for tool in await client.list_tools() if tool.name == "get_sonarr_history")
+            assert tool.inputSchema["properties"]["event_type"]["default"] == "all"
+            assert tool.inputSchema["properties"]["sort_direction"]["default"] == "descending"
+            assert tool.inputSchema["properties"]["limit"]["default"] == 10
+            result = await client.call_tool(
+                "get_sonarr_history",
+                {"event_type": "episodeFileDeleted", "sort_direction": "ascending", "limit": 5},
+            )
+            assert result.data == (
+                "date\ttitle\tseason_number\tepisode_number\tepisode_title\tevent_type\t"
+                "source_title\tquality\tdownload_id\tmessage\n"
+                "2024-01-01T00:00:00Z\tDark\t1\t2\tLies\tepisodeFileDeleted\t\t\t\t"
+            )
+
+    with (
+        patch("media_stack.sonarr.get_sonarr_config", return_value=("http://sonarr", "test")),
+        patch("media_stack.sonarr.requests.get") as get,
+    ):
+        get.return_value.json.return_value = {"totalRecords": 1, "records": [{
+            "date": "2024-01-01T00:00:00Z", "series": {"title": "Dark"},
+            "episode": {"seasonNumber": 1, "episodeNumber": 2, "title": "Lies"},
+            "eventType": "episodeFileDeleted",
+        }]}
+        asyncio.run(check_tool())
+        assert get.call_args.kwargs["params"]["eventType"] == 5
+        assert get.call_args.kwargs["params"]["sortDirection"] == "ascending"
+        assert get.call_args.kwargs["params"]["pageSize"] == 5
+
+
 def test_get_sonarr_validation_errors():
     print("\nTesting Sonarr validation")
 
@@ -1612,6 +1732,10 @@ if __name__ == "__main__":
         test_delete_radarr_movie_excludes_import_lists,
         test_delete_radarr_movie_request_failure,
         test_get_sonarr_validation_errors,
+        test_get_sonarr_history,
+        test_get_sonarr_history_pagination,
+        test_get_sonarr_history_filters_and_errors,
+        test_get_sonarr_history_mcp,
         test_get_sonarr_shows,
         test_get_sonarr_shows_output_formats,
         test_get_sonarr_shows_title_filter,

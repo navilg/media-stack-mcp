@@ -95,6 +95,7 @@ Output format is TSV:
 ### Sonarr Tools
 
 - `get_sonarr_shows(full_details=False, title=None, filter=None)`
+- `get_sonarr_history(event_type="all", sort_direction="descending", limit=10)`
 - `get_sonarr_quality_profiles()`
 - `get_sonarr_root_folders()`
 - `add_sonarr_show(show_query, root_folder_path, quality_profile_id, season_number_to_monitor)`
@@ -138,6 +139,17 @@ pages up to the requested limit; no matches return `Empty list`. Import dates re
 retained history and can be unavailable after history is cleared or a movie is
 deleted and re-added.
 
+`get_sonarr_history()` returns TSV rows with `date`, series `title`,
+`season_number`, `episode_number`, `episode_title`, `event_type`, `source_title`,
+`quality`, `download_id`, and `message`. It defaults to all events, newest first,
+with at most 10 results; set `limit` to a positive integer to change that.
+Set `event_type` to `grabbed`, `seriesFolderImported`, `downloadFolderImported`,
+`downloadFailed`, `episodeFileDeleted`, `episodeFileRenamed`, `downloadIgnored`,
+`unknown`, or `all`. Set `sort_direction="ascending"` for oldest first.
+Values are case-insensitive and ignore surrounding whitespace. The tool fetches
+pages up to the requested limit; no matches return `Empty list`. Import dates
+reflect retained Sonarr history and may be unavailable if history was removed.
+
 `get_tmdb_latest_high_rated_movies()` and `get_tmdb_latest_high_rated_shows()` 
 fetch recent high-rated content from TMDB with automatic retry logic (10 attempts 
 with exponential backoff) to handle intermittent API failures. Both tools filter 
@@ -171,6 +183,7 @@ TV output: `name`, `latest_air_date`, `average_rating`, `vote_count`, `popularit
 - `delete_radarr_movie(movie_query, delete_files=True)`
 - `get_radarr_current_downloads()`
 - `get_sonarr_shows(full_details=False, title=None, filter=None)`
+- `get_sonarr_history(event_type="all", sort_direction="descending", limit=10)`
 - `get_sonarr_quality_profiles()`
 - `get_sonarr_root_folders()`
 - `add_sonarr_show(show_query, root_folder_path, quality_profile_id, season_number_to_monitor)`
