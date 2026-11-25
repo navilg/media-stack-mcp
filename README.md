@@ -85,6 +85,7 @@ Output format is TSV:
 - **Details:** Additional fields like `runtime`, `budget`, `revenue`, `number_of_seasons`, `number_of_episodes`
 
 - `get_radarr_movies(full_details=False, title=None, filter=None)`
+- `get_radarr_history(event_type="all", sort_direction="descending", limit=10)`
 - `get_radarr_quality_profiles()`
 - `get_radarr_root_folders()`
 - `add_radarr_movie(movie_query, root_folder_path, quality_profile_id)`
@@ -124,6 +125,19 @@ Omitting `filter`, passing `null`/`None`, or passing `{}` leaves the library
 unfiltered apart from any `title` filter. Invalid keys or values return an error.
 Filtering works with both short and full output; no matches returns `Empty list`.
 
+`get_radarr_history()` returns TSV rows with `date`, `title`, `event_type`,
+`source_title`, `quality`, `download_id`, and `message`. It defaults to
+all event types in newest-first order, with at most 10 results. Set `limit`
+to a positive integer to change the number returned.
+Set `event_type` to `downloadFolderImported` for downloaded file imports, or
+to `grabbed`, `downloadFailed`, `movieFileDeleted`,
+`movieFolderImported`, `movieFileRenamed`, `downloadIgnored`, `unknown`, or
+`all` for other history, and `sort_direction="ascending"` for oldest first.
+Values are case-insensitive and ignore surrounding whitespace. The tool fetches
+pages up to the requested limit; no matches return `Empty list`. Import dates reflect Radarr's
+retained history and can be unavailable after history is cleared or a movie is
+deleted and re-added.
+
 `get_tmdb_latest_high_rated_movies()` and `get_tmdb_latest_high_rated_shows()` 
 fetch recent high-rated content from TMDB with automatic retry logic (10 attempts 
 with exponential backoff) to handle intermittent API failures. Both tools filter 
@@ -150,6 +164,7 @@ TV output: `name`, `latest_air_date`, `average_rating`, `vote_count`, `popularit
 `genre_ids`, `original_language`, `overview`, `tmdb_id`.
 
 - `get_radarr_movies(full_details=False, title=None, filter=None)`
+- `get_radarr_history(event_type="all", sort_direction="descending", limit=10)`
 - `get_radarr_quality_profiles()`
 - `get_radarr_root_folders()`
 - `add_radarr_movie(movie_query, root_folder_path, quality_profile_id)`

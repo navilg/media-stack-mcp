@@ -17,6 +17,7 @@ from media_stack.radarr import (
     add_radarr_movie,
     delete_radarr_movie,
     get_radarr_current_downloads,
+    get_radarr_history,
     get_radarr_movies,
     get_radarr_root_folders,
     get_radarr_quality_profiles,
@@ -111,6 +112,7 @@ def _register_tools(mcp: FastMCP) -> None:
 
     radarr_tools = [
         get_radarr_movies,
+        get_radarr_history,
         get_radarr_quality_profiles,
         get_radarr_root_folders,
         add_radarr_movie,

@@ -106,6 +106,98 @@ def get_radarr_movies(
 
 
 @log_tool_call
+def get_radarr_history(
+    event_type: str = "all",
+    sort_direction: str = "descending",
+    limit: int = 10,
+) -> str:
+    """List Radarr history as TSV, sorted by date. Event types: downloadFolderImported
+    (download import), grabbed, downloadFailed, movieFileDeleted, movieFolderImported,
+    movieFileRenamed, downloadIgnored, unknown, or all (default). Sort: ascending or
+    descending (default). Limit defaults to 10 and must be positive. Errors as strings.
+    """
+    event_types = {
+        "unknown": 0,
+        "grabbed": 1,
+        "downloadfolderimported": 3,
+        "downloadfailed": 4,
+        "moviefiledeleted": 6,
+        "moviefolderimported": 7,
+        "moviefilerenamed": 8,
+        "downloadignored": 9,
+    }
+    if not isinstance(event_type, str) or event_type.strip().lower() not in (
+        *event_types, "all"
+    ):
+        return "Error: unsupported Radarr history event_type"
+    if not isinstance(sort_direction, str) or sort_direction.strip().lower() not in (
+        "ascending", "descending"
+    ):
+        return "Error: sort_direction must be ascending or descending"
+    if type(limit) is not int or limit < 1:
+        return "Error: limit must be a positive integer"
+
+    radarr_config = get_radarr_config()
+    if isinstance(radarr_config, str):
+        return radarr_config
+
+    radarr_url, radarr_api_key = radarr_config
+    params = {
+        "page": 1,
+        "pageSize": min(limit, 1000),
+        "sortKey": "date",
+        "sortDirection": sort_direction.strip().lower(),
+        "includeMovie": "true",
+    }
+    normalized_type = event_type.strip().lower()
+    if normalized_type != "all":
+        params["eventType"] = event_types[normalized_type]
+
+    rows: list[dict] = []
+    try:
+        while True:
+            response = requests.get(
+                f"{radarr_url}/api/v3/history",
+                params=params,
+                headers={"X-Api-Key": radarr_api_key},
+                timeout=20,
+            )
+            response.raise_for_status()
+            payload = response.json()
+            records = payload["records"]
+            total = payload["totalRecords"]
+            if (
+                not isinstance(records, list)
+                or type(total) is not int
+                or total < 0
+                or (not records and len(rows) < total)
+            ):
+                return "Error: Invalid history response from Radarr"
+            for record in records:
+                movie = record.get("movie") or {}
+                quality = record.get("quality") or {}
+                data = record.get("data") or {}
+                rows.append({
+                    "date": record.get("date"),
+                    "title": movie.get("title"),
+                    "event_type": record.get("eventType"),
+                    "source_title": record.get("sourceTitle"),
+                    "quality": (quality.get("quality") or {}).get("name"),
+                    "download_id": record.get("downloadId"),
+                    "message": data.get("message") or data.get("Message"),
+                })
+            if len(rows) >= total or len(rows) >= limit:
+                break
+            params["page"] += 1
+    except requests.RequestException as exc:
+        return f"Error: Failed to fetch history from Radarr: {exc}"
+    except (KeyError, TypeError, ValueError, AttributeError):
+        return "Error: Invalid history response from Radarr"
+
+    return to_tsv(rows[:limit])
+
+
+@log_tool_call
 def get_radarr_quality_profiles() -> str:
     """List Radarr quality profiles as TSV; errors as strings."""
     radarr_config = get_radarr_config()

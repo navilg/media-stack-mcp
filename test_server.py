@@ -6,7 +6,7 @@ import time
 import traceback
 import subprocess
 import sys
-from unittest.mock import patch
+from unittest.mock import Mock, patch
 from requests import RequestException
 from dotenv import load_dotenv
 import os
@@ -768,6 +768,124 @@ def test_search_trakt_show_by_title():
     print(f"Retrieved {len(records)} shows matching 'Dark' from Trakt")
     print("Sample show:", records[0])
     
+def test_get_radarr_history():
+    response = {"totalRecords": 2, "records": [{
+            "date": "2025-03-01T12:00:00Z", "eventType": "downloadFolderImported",
+            "movie": {"title": "Dune"}, "sourceTitle": "Dune.1080p",
+            "quality": {"quality": {"name": "Bluray-1080p"}}, "downloadId": "abc",
+        }, {
+            "date": "2024-01-01T12:00:00Z", "eventType": "downloadFolderImported",
+            "movie": {"title": "Dune"},
+        }]}
+
+    with (
+        patch("media_stack.radarr.get_radarr_config", return_value=("http://radarr", "test")),
+        patch("media_stack.radarr.requests.get") as get,
+    ):
+        get.return_value.json.return_value = response
+        assert server.get_radarr_history() == (
+            "date\ttitle\tevent_type\tsource_title\tquality\tdownload_id\tmessage\n"
+            "2025-03-01T12:00:00Z\tDune\tdownloadFolderImported\tDune.1080p\t"
+            "Bluray-1080p\tabc\t\n"
+            "2024-01-01T12:00:00Z\tDune\tdownloadFolderImported\t\t\t\t"
+        )
+        get.assert_called_once_with(
+            "http://radarr/api/v3/history",
+            params={"page": 1, "pageSize": 10, "sortKey": "date",
+                    "sortDirection": "descending", "includeMovie": "true"},
+            headers={"X-Api-Key": "test"}, timeout=20,
+        )
+        get.return_value.json.return_value = {
+            "totalRecords": 12, "records": [{"date": str(i)} for i in range(12)],
+        }
+        assert len(_parse_tsv(server.get_radarr_history())) == 10
+        assert len(_parse_tsv(server.get_radarr_history(limit=1))) == 1
+        assert get.call_args.kwargs["params"]["pageSize"] == 1
+
+
+def test_get_radarr_history_pagination():
+    calls = []
+
+    def respond(url, **kwargs):
+        calls.append(dict(kwargs["params"]))
+        count = 1000 if len(calls) == 1 else 1
+        return Mock(json=Mock(return_value={
+            "totalRecords": 1002, "records": [{"date": "2024-01-01"}] * count,
+        }))
+
+    with (
+        patch("media_stack.radarr.get_radarr_config", return_value=("http://radarr", "test")),
+        patch("media_stack.radarr.requests.get", side_effect=respond),
+    ):
+        assert len(_parse_tsv(server.get_radarr_history(limit=1001))) == 1001
+        assert [params["page"] for params in calls] == [1, 2]
+        assert all(params["pageSize"] == 1000 for params in calls)
+
+
+def test_get_radarr_history_filters_and_errors():
+    cases = {
+        "unknown": 0, "grabbed": 1, "downloadFolderImported": 3,
+        "downloadFailed": 4, "movieFileDeleted": 6, "movieFolderImported": 7,
+        "movieFileRenamed": 8, "downloadIgnored": 9,
+    }
+    with (
+        patch("media_stack.radarr.get_radarr_config", return_value=("http://radarr", "test")),
+        patch("media_stack.radarr.requests.get") as get,
+    ):
+        get.return_value.json.return_value = {"totalRecords": 0, "records": []}
+        for event_type, event_id in cases.items():
+            assert server.get_radarr_history(f" {event_type.upper()} ", " Ascending ") == "Empty list"
+            params = get.call_args.kwargs["params"]
+            assert params["eventType"] == event_id
+            assert params["sortDirection"] == "ascending"
+        assert server.get_radarr_history("all") == "Empty list"
+        assert "eventType" not in get.call_args.kwargs["params"]
+        get.reset_mock()
+        assert server.get_radarr_history("invalid").startswith("Error:")
+        assert server.get_radarr_history(sort_direction="invalid").startswith("Error:")
+        for limit in (0, -1, True, 1.5, "10"):
+            assert server.get_radarr_history(limit=limit) == "Error: limit must be a positive integer"
+        get.assert_not_called()
+
+        get.side_effect = RequestException("unavailable")
+        assert server.get_radarr_history() == "Error: Failed to fetch history from Radarr: unavailable"
+        get.side_effect = None
+        get.return_value.json.return_value = {"totalRecords": 1, "records": []}
+        assert server.get_radarr_history() == "Error: Invalid history response from Radarr"
+
+
+def test_get_radarr_history_mcp():
+    async def check_tool():
+        mcp = server._create_mcp(use_auth=False)
+        server._register_tools(mcp)
+        async with Client(mcp) as client:
+            tool = next(tool for tool in await client.list_tools() if tool.name == "get_radarr_history")
+            assert tool.inputSchema["properties"]["event_type"]["default"] == "all"
+            assert tool.inputSchema["properties"]["sort_direction"]["default"] == "descending"
+            assert tool.inputSchema["properties"]["limit"]["default"] == 10
+            result = await client.call_tool(
+                "get_radarr_history",
+                {"event_type": "downloadFailed", "sort_direction": "ascending", "limit": 5},
+            )
+            assert result.data == (
+                "date\ttitle\tevent_type\tsource_title\tquality\tdownload_id\tmessage\n"
+                "2024-01-01T00:00:00Z\tDune\tdownloadFailed\t\t\t\tDisk full"
+            )
+
+    with (
+        patch("media_stack.radarr.get_radarr_config", return_value=("http://radarr", "test")),
+        patch("media_stack.radarr.requests.get") as get,
+    ):
+        get.return_value.json.return_value = {"totalRecords": 1, "records": [{
+            "date": "2024-01-01T00:00:00Z", "movie": {"title": "Dune"},
+            "eventType": "downloadFailed", "data": {"message": "Disk full"},
+        }]}
+        asyncio.run(check_tool())
+        assert get.call_args.kwargs["params"]["eventType"] == 4
+        assert get.call_args.kwargs["params"]["sortDirection"] == "ascending"
+        assert get.call_args.kwargs["params"]["pageSize"] == 5
+
+
 def test_get_radarr_movies_output_formats():
     """Short output is the default; full output preserves all metadata."""
     movies = [
@@ -1477,6 +1595,10 @@ if __name__ == "__main__":
         test_search_trakt_movie_by_title,
         test_search_trakt_show_by_title,
         test_get_radarr_movies,
+        test_get_radarr_history,
+        test_get_radarr_history_pagination,
+        test_get_radarr_history_filters_and_errors,
+        test_get_radarr_history_mcp,
         test_get_radarr_movies_output_formats,
         test_get_radarr_movies_empty_formats,
         test_get_radarr_movies_tool_schema,
